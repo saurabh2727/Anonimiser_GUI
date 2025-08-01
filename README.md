@@ -29,7 +29,7 @@ A powerful, Tkinter-based GUI tool that safely masks and unmasks sensitive SQL q
 
 ---
 
-## 🖼 UI Overview
+## UI Overview
 
 | Section | Description |
 |--------|-------------|
@@ -42,7 +42,7 @@ A powerful, Tkinter-based GUI tool that safely masks and unmasks sensitive SQL q
 
 ---
 
-## 🛠️ Requirements
+## Requirements
 
 - Python 3.8+
 - Packages:
