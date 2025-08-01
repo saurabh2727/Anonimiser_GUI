@@ -1,0 +1,59 @@
+# SQL Masker Tool - Features Summary
+
+## **What This Tool Does**
+This tool helps you **safely share SQL code with AI assistants** by replacing sensitive database names with fake ones, then restoring the real names after the AI helps you.
+
+## **Main Features**
+
+### **Basic Workflow**
+1. **Paste your sensitive SQL** → Tool finds table names, column names, etc.
+2. **Replace with fake names** → `customer_table` becomes `table_1`
+3. **Share masked SQL with AI** → AI can help without seeing real names
+4. **Paste AI's response back** → Tool restores original names automatically
+
+### **What Gets Hidden**
+- **Database names** (catalogs)
+- **Schema names** 
+- **Table names**
+- **Column names**
+- **String values** (like 'secret_data')
+- **Custom function names**
+- **Aliases** (short names for tables)
+
+### **Smart Features**
+- **Doesn't hide SQL keywords** → Won't replace `SELECT`, `FROM`, `WHERE`, etc.
+- **Avoids conflicts** → Makes sure fake names don't clash with each other
+- **Handles quotes properly** → Works with both 'single' and "double" quotes
+
+### **Easy Controls**
+- **Pick what to hide** → Uncheck items you don't want to mask
+- **See before/after** → Compare original vs masked SQL
+- **View differences** → See exactly what the AI changed
+- **Copy with one click** → Easy copying to clipboard
+
+### **File Operations**
+- **Load SQL files** → Import .sql files directly
+- **Save/Load mappings** → Reuse the same fake names across sessions
+- **Handle big files** → Warns about large files that might be slow
+
+### **Error Help**
+- **Find SQL problems** → Tells you about syntax errors
+- **Suggest fixes** → Gives specific advice for common problems
+- **Test parsing** → Check if your SQL will work before masking
+
+### **Safety Features**
+- **Conflict prevention** → Avoids mixing up similar names
+- **Quality checks** → Makes sure SQL keywords aren't accidentally hidden
+- **Backup originals** → Never loses your original SQL
+
+## 🚀 **Why Use This?**
+- **Keep secrets safe** → AI never sees your real database names
+- **Get AI help** → Still get code improvements and suggestions  
+- **Save time** → Automatic restoration means no manual find/replace
+- **Reusable** → Save mappings to use the same fake names again
+
+## **Perfect For**
+- Asking AI to optimize your SQL queries
+- Getting help with complex database logic
+- Sharing SQL examples without exposing company data
+- Learning SQL with real structure but fake names
