@@ -1,0 +1,83 @@
+--detailed table_1 listing of offline, excluding category 1-28 days.   offline_services_report
+with avcs_billed as(
+	select column_1,column_2,column_3,column_4,column_5,column_6,
+	table_2 
+	 	WHEN table_1.column_6 = 'string_1' and table_1.column_12 LIKE 'string_2' THEN 'string_3'
+	 	WHEN table_1.column_6 = 'string_1' and UPPER(table_1.column_12) LIKE 'string_4' THEN 'string_3'
+	 	WHEN table_1.column_6 = 'string_1' and UPPER(table_1.column_12) LIKE 'string_5' THEN 'string_3'          
+	 	--when table_1.column_6 = 'string_1' and table_1.column_12 SIMILAR TO 'string_6' = true then 'string_3'
+		WHEN table_1.column_6 = 'string_1' and  table_1.column_12 LIKE 'string_7' THEN 'string_8'
+        WHEN table_1.column_6 = 'string_1' and  UPPER(table_1.column_12) LIKE 'string_9' THEN 'string_8'
+        WHEN table_1.column_6 = 'string_1' and  UPPER(table_1.column_12) LIKE 'string_10' THEN 'string_8'
+        WHEN table_1.column_6 = 'string_1' and  UPPER(table_1.column_12) LIKE 'string_11' THEN 'string_12'
+        WHEN table_1.column_6 = 'string_1' and  UPPER(table_1.column_12) LIKE 'string_13' THEN 'string_14'
+        WHEN table_1.column_6 = 'string_1' and  UPPER(table_1.column_12) LIKE 'string_15' THEN 'string_14' 
+        WHEN table_1.column_6 = 'string_1' and  UPPER(table_1.column_12) LIKE 'string_16' THEN 'string_17'
+        WHEN table_1.column_6 = 'string_1' and  UPPER(table_1.column_12) LIKE 'string_18' THEN 'string_17'
+              WHEN table_1.column_6 = 'string_1' and  UPPER(table_1.column_12) LIKE 'string_19' THEN 'string_17'
+              WHEN table_1.column_6 = 'string_1' and  UPPER(table_1.column_12) LIKE 'string_20' THEN 'string_17'
+              WHEN table_1.column_6 = 'string_1' and  UPPER(table_1.column_12) LIKE 'string_21' THEN 'string_3'
+              WHEN table_1.column_6 = 'string_1' and  UPPER(table_1.column_12) LIKE 'string_22' THEN 'string_3'
+              when table_1.column_6 = 'string_1' then   'string_23'
+        WHEN table_1.column_6 in ( 'string_24','string_25')
+                     and UPPER(table_1.column_12) LIKE 'string_26' THEN 'string_27'
+              WHEN table_1.column_6 in ('string_24', 'string_25') and  UPPER(table_1.column_12) LIKE 'string_26' THEN 'string_27'
+        WHEN table_1.column_6 in ('string_24', 'string_25') and  UPPER(table_1.column_12) LIKE 'string_28' THEN 'string_27'
+        WHEN table_1.column_6 in ('string_24', 'string_25') and  UPPER(table_1.column_12) LIKE 'string_29' THEN 'string_30'
+        WHEN table_1.column_6 in ('string_24', 'string_25') and  UPPER(table_1.column_12) LIKE 'string_31' THEN 'string_32'
+              WHEN table_1.column_6 in ('string_24', 'string_25') and  UPPER(table_1.column_12) LIKE 'string_33' THEN 'string_34'
+              WHEN table_1.column_6 in ('string_24', 'string_25') and  UPPER(table_1.column_12) LIKE 'string_35' THEN 'string_36'
+              WHEN table_1.column_6 in ('string_24', 'string_25') and  UPPER(table_1.column_12) LIKE 'string_37' THEN 'string_38'
+        WHEN table_1.column_6 in ('string_24', 'string_25') and  UPPER(table_1.column_12) LIKE 'string_39' THEN 'string_38'
+ WHEN table_1.column_6 in ('string_24', 'string_25') and  UPPER(table_1.column_12) LIKE 'string_40' THEN 'string_38'
+              when table_1.column_6 in ('string_24', 'string_25') then 'string_41'
+              WHEN table_1.column_6 in ('string_42' , 'string_43') and UPPER(table_1.column_12) LIKE 'string_44' THEN 'string_45'
+            --  WHEN table_1.column_6 = 'string_42'  and UPPER(table_1.column_12) like 'string_46' and LENGTH(table_1.column_12) = 10 and UPPER(table_1.column_12) similar to 'string_47' = true THEN 'string_45' --DTW-19255 Addition
+        WHEN table_1.column_6 in ('string_42' , 'string_43') and UPPER(table_1.column_12) LIKE 'string_48' THEN 'string_49'
+              WHEN table_1.column_6 in ('string_42' , 'string_43') and UPPER(table_1.column_12) LIKE 'string_50' THEN 'string_49'
+              WHEN table_1.column_6 in ('string_51') and UPPER(table_1.column_12) LIKE 'string_52' THEN 'string_49'  -- DTW-20512
+        WHEN table_1.column_6 in ('string_42' , 'string_43') and UPPER(table_1.column_12) LIKE 'string_53' THEN 'string_54'
+              WHEN table_1.column_6 in ('string_42' , 'string_43') and UPPER(table_1.column_12) LIKE 'string_55' THEN 'string_56' --DTW-1825 Addition
+        WHEN table_1.column_6 in ('string_42' , 'string_43') and UPPER(table_1.column_12) LIKE 'string_57' THEN 'string_58'
+        when table_1.column_6 in ('string_42' , 'string_43') then 'string_58'
+              WHEN table_1.column_6 in ('string_59') and  UPPER(table_1.column_12) LIKE 'string_60' THEN 'string_61'
+              WHEN table_1.column_6 in ('string_59') and  UPPER(table_1.column_12) LIKE 'string_62' THEN 'string_61'
+              WHEN table_1.column_6 in ('string_59') and   UPPER(table_1.column_12) LIKE 'string_63' THEN 'string_64'  
+              WHEN table_1.column_6 in ('string_59') and   UPPER(table_1.column_12) LIKE 'string_65' THEN 'string_66'
+              WHEN table_1.column_6 in ('string_59') and   UPPER(table_1.column_12) LIKE 'string_67' THEN 'string_68'        
+        WHEN table_1.column_6 in ('string_59') and   UPPER(table_1.column_12) LIKE 'string_69' THEN 'string_70'                              
+        when table_1.column_6 in ('string_59') then  'string_71'
+              when table_1.column_6 = 'string_72'
+              and table_1.column_11 >= 'string_73'
+              then 'string_74'
+ELSE 'string_75'
+END AS column_21,
+column_7,column_8,column_9,column_10,column_11,column_12,column_13,column_14,column_15,column_16,column_17,column_18,column_19 ,(select max(column_16) as column_23  from schema_1.table_1),
+	table_2
+		when column_15 is not null then column_15 else null
+	end as column_22,
+	table_2
+		when column_16 is not null then column_16 else null
+	end as column_20
+	from schema_1.table_1
+	where column_18=1
+), calc as(
+	select *, 
+	table_2 
+		when column_20 is not null then (column_23-column_20) else (column_23-column_14)
+	end as days_off_line
+	from avcs_billed
+), avc_offline as(
+	select column_1,column_2,column_3,column_4,column_5,column_6,column_21,column_7,column_8,column_9,column_12,column_13,column_10,column_11,column_19 as fttp_completed_order_at_same_location_id,column_14,column_17,column_18,column_22,column_20,column_23,a.days_off_line,
+	table_2 
+		when days_off_line > 0 and days_off_line <= 28 then 'string_76'
+		when days_off_line > 28 and days_off_line <= 180 then 'string_77'
+		when days_off_line > 180 and days_off_line <= 360 then 'string_78'
+		when days_off_line > 360 and days_off_line <= 720 then 'string_79'
+		when days_off_line > 720 and days_off_line <= 990 then 'string_80'
+		when days_off_line > 990 then 'string_81'
+		else 'string_82'
+	end as offline_category
+	from calc a where days_off_line>0
+)
+select * from avc_offline where offline_category <> 'string_76'

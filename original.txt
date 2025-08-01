@@ -1,0 +1,83 @@
+--detailed avc listing of offline, excluding category 1-28 days.   offline_services_report
+with avcs_billed as(
+	select avc_id,loc_id,access_service_tech_type,avc_bandwidth_profile,access_seeker_name,access_seeker_id,
+	CASE 
+	 	WHEN avc.access_seeker_id = 'ASI000000000035' and avc.sp_reference_id LIKE '1%' THEN 'Telstra - Consumer'
+	 	WHEN avc.access_seeker_id = 'ASI000000000035' and UPPER(avc.sp_reference_id) LIKE 'SR 1%' THEN 'Telstra - Consumer'
+	 	WHEN avc.access_seeker_id = 'ASI000000000035' and UPPER(avc.sp_reference_id) LIKE 'O2AOF%' THEN 'Telstra - Consumer'          
+	 	--when avc.access_seeker_id = 'ASI000000000035' and avc.sp_reference_id SIMILAR TO '[a-lA-L]([2-9][0-9])([0-2][1-9]|[1-3]0|31)[0-9]{10}$' = true then 'Telstra - Consumer'
+		WHEN avc.access_seeker_id = 'ASI000000000035' and  avc.sp_reference_id LIKE '2%' THEN 'Telstra - Business'
+        WHEN avc.access_seeker_id = 'ASI000000000035' and  UPPER(avc.sp_reference_id) LIKE 'O%' THEN 'Telstra - Business'
+        WHEN avc.access_seeker_id = 'ASI000000000035' and  UPPER(avc.sp_reference_id) LIKE 'TB%' THEN 'Telstra - Business'
+        WHEN avc.access_seeker_id = 'ASI000000000035' and  UPPER(avc.sp_reference_id) LIKE 'BLNG%' THEN 'Telstra - Belong'
+        WHEN avc.access_seeker_id = 'ASI000000000035' and  UPPER(avc.sp_reference_id) LIKE 'LOLO_ORDER%' THEN 'Telstra - Wholesale/Belong'
+        WHEN avc.access_seeker_id = 'ASI000000000035' and  UPPER(avc.sp_reference_id) LIKE 'PMV%' THEN 'Telstra - Wholesale/Belong' 
+        WHEN avc.access_seeker_id = 'ASI000000000035' and  UPPER(avc.sp_reference_id) LIKE 'T%' THEN 'Telstra - Business IP'
+        WHEN avc.access_seeker_id = 'ASI000000000035' and  UPPER(avc.sp_reference_id) LIKE 'N%' THEN 'Telstra - Business IP'
+              WHEN avc.access_seeker_id = 'ASI000000000035' and  UPPER(avc.sp_reference_id) LIKE 'SDTBIZ%' THEN 'Telstra - Business IP'
+              WHEN avc.access_seeker_id = 'ASI000000000035' and  UPPER(avc.sp_reference_id) LIKE 'SDDB%' THEN 'Telstra - Business IP'
+              WHEN avc.access_seeker_id = 'ASI000000000035' and  UPPER(avc.sp_reference_id) LIKE 'ISP%' THEN 'Telstra - Consumer'
+              WHEN avc.access_seeker_id = 'ASI000000000035' and  UPPER(avc.sp_reference_id) LIKE 'H%' THEN 'Telstra - Consumer'
+              when avc.access_seeker_id = 'ASI000000000035' then   'Telstra - Unknown'
+        WHEN avc.access_seeker_id in ( 'ASI000000001072','ASI000000220777')
+                     and UPPER(avc.sp_reference_id) LIKE '%CMR%' THEN 'Optus - Consumer'
+              WHEN avc.access_seeker_id in ('ASI000000001072', 'ASI000000220777') and  UPPER(avc.sp_reference_id) LIKE '%CMR%' THEN 'Optus - Consumer'
+        WHEN avc.access_seeker_id in ('ASI000000001072', 'ASI000000220777') and  UPPER(avc.sp_reference_id) LIKE 'CSA%' THEN 'Optus - Consumer'
+        WHEN avc.access_seeker_id in ('ASI000000001072', 'ASI000000220777') and  UPPER(avc.sp_reference_id) LIKE '%OWO%' THEN 'Optus - Wholesale/OWO'
+        WHEN avc.access_seeker_id in ('ASI000000001072', 'ASI000000220777') and  UPPER(avc.sp_reference_id) LIKE '%OB$%' THEN 'Optus - Business'
+              WHEN avc.access_seeker_id in ('ASI000000001072', 'ASI000000220777') and  UPPER(avc.sp_reference_id) LIKE '%OW$%' THEN 'Optus - OW Fixed Enterprise'
+              WHEN avc.access_seeker_id in ('ASI000000001072', 'ASI000000220777') and  UPPER(avc.sp_reference_id) LIKE '%SMB$%' THEN 'Optus - SMB Business'
+              WHEN avc.access_seeker_id in ('ASI000000001072', 'ASI000000220777') and  UPPER(avc.sp_reference_id) LIKE 'OPTUSB2BTXNUM_SMB%' THEN 'Optus - SMB Micro-SOHO'
+        WHEN avc.access_seeker_id in ('ASI000000001072', 'ASI000000220777') and  UPPER(avc.sp_reference_id) LIKE 'SMB%' THEN 'Optus - SMB Micro-SOHO'
+ WHEN avc.access_seeker_id in ('ASI000000001072', 'ASI000000220777') and  UPPER(avc.sp_reference_id) LIKE 'OPTUSB2BTXNUM_OSSF_SMB_%' THEN 'Optus - SMB Micro-SOHO'
+              when avc.access_seeker_id in ('ASI000000001072', 'ASI000000220777') then 'Optus - Unknown'
+              WHEN avc.access_seeker_id in ('ASI000000001074' , 'ASI000000002224') and UPPER(avc.sp_reference_id) LIKE 'AAPT%' THEN 'TPG Group - AAPT'
+            --  WHEN avc.access_seeker_id = 'ASI000000001074'  and UPPER(avc.sp_reference_id) like 'CA%' and LENGTH(avc.sp_reference_id) = 10 and UPPER(avc.sp_reference_id) similar to 'CA[0-9]{8}' = true THEN 'TPG Group - AAPT' --DTW-19255 Addition
+        WHEN avc.access_seeker_id in ('ASI000000001074' , 'ASI000000002224') and UPPER(avc.sp_reference_id) LIKE 'IINET%' THEN 'TPG Group - iiNet'
+              WHEN avc.access_seeker_id in ('ASI000000001074' , 'ASI000000002224') and UPPER(avc.sp_reference_id) LIKE 'WSNT%' THEN 'TPG Group - iiNet'
+              WHEN avc.access_seeker_id in ('ASI000000221038') and UPPER(avc.sp_reference_id) LIKE 'VHA%' THEN 'TPG Group - iiNet'  -- DTW-20512
+        WHEN avc.access_seeker_id in ('ASI000000001074' , 'ASI000000002224') and UPPER(avc.sp_reference_id) LIKE 'INODE%' THEN 'TPG Group - Internode'
+              WHEN avc.access_seeker_id in ('ASI000000001074' , 'ASI000000002224') and UPPER(avc.sp_reference_id) LIKE 'VHA_%' THEN 'TPG Group - Vodafone' --DTW-1825 Addition
+        WHEN avc.access_seeker_id in ('ASI000000001074' , 'ASI000000002224') and UPPER(avc.sp_reference_id) LIKE 'CID%' THEN 'TPG Group - TPG'
+        when avc.access_seeker_id in ('ASI000000001074' , 'ASI000000002224') then 'TPG Group - TPG'
+              WHEN avc.access_seeker_id in ('ASI000000000026') and  UPPER(avc.sp_reference_id) LIKE 'M2D%' THEN 'Vocus - Dodo'
+              WHEN avc.access_seeker_id in ('ASI000000000026') and  UPPER(avc.sp_reference_id) LIKE 'DOD1%' THEN 'Vocus - Dodo'
+              WHEN avc.access_seeker_id in ('ASI000000000026') and   UPPER(avc.sp_reference_id) LIKE 'M2W%' THEN 'Vocus - Wholesale'  
+              WHEN avc.access_seeker_id in ('ASI000000000026') and   UPPER(avc.sp_reference_id) LIKE 'M2CD%' THEN 'Vocus - Commander'
+              WHEN avc.access_seeker_id in ('ASI000000000026') and   UPPER(avc.sp_reference_id) LIKE 'OES%' THEN 'Vocus - iPrimus'        
+        WHEN avc.access_seeker_id in ('ASI000000000026') and   UPPER(avc.sp_reference_id) LIKE 'M2PD%' THEN 'Vocus - Corporate Data'                              
+        when avc.access_seeker_id in ('ASI000000000026') then  'Vocus - Unknown'
+              when avc.access_seeker_id = 'ASI000000001094'
+              and avc.sp_order_status_date >= '16-Oct-2018'
+              then 'MACQ'
+ELSE 'Others'
+END AS rsp_group,
+product_instance_id,sp_order_id,sp_order_type,sp_order_status,sp_order_status_date,sp_reference_id,sp_ordered_by,first_appeared_dt,min_dt,max_dt,billed_revenue,billed_flag,fttp_completed_order ,(select max(max_dt) as dt  from sys_offline_services.avc),
+	CASE
+		when min_dt is not null then min_dt else null
+	end as earliest_traffic_dt,
+	CASE
+		when max_dt is not null then max_dt else null
+	end as latest_traffic_dt
+	from sys_offline_services.avc
+	where billed_flag=1
+), calc as(
+	select *, 
+	CASE 
+		when latest_traffic_dt is not null then (dt-latest_traffic_dt) else (dt-first_appeared_dt)
+	end as days_off_line
+	from avcs_billed
+), avc_offline as(
+	select avc_id,loc_id,access_service_tech_type,avc_bandwidth_profile,access_seeker_name,access_seeker_id,rsp_group,product_instance_id,sp_order_id,sp_order_type,sp_reference_id,sp_ordered_by,sp_order_status,sp_order_status_date,fttp_completed_order as fttp_completed_order_at_same_location_id,first_appeared_dt,billed_revenue,billed_flag,earliest_traffic_dt,latest_traffic_dt,dt,a.days_off_line,
+	CASE 
+		when days_off_line > 0 and days_off_line <= 28 then '1. 1-28'
+		when days_off_line > 28 and days_off_line <= 180 then '2. 29-180'
+		when days_off_line > 180 and days_off_line <= 360 then '3. 181-360'
+		when days_off_line > 360 and days_off_line <= 720 then '4. 361-720'
+		when days_off_line > 720 and days_off_line <= 990 then '5. 721-990'
+		when days_off_line > 990 then '6. 990+'
+		else ''
+	end as offline_category
+	from calc a where days_off_line>0
+)
+select * from avc_offline where offline_category <> '1. 1-28'
