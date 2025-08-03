@@ -1,0 +1,4 @@
+# Ignore a specific file
+test_data.txt
+test_script.txt
+sql_mask_gui.py

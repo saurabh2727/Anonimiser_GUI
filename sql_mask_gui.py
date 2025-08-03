@@ -1,5 +1,5 @@
 import tkinter as tk
-from tkinter import filedialog, messagebox, scrolledtext, Toplevel
+from tkinter import filedialog, messagebox, scrolledtext, Toplevel, ttk
 import re
 import json
 import sqlparse
@@ -12,6 +12,11 @@ from sqlparse.sql import IdentifierList, Identifier, Function
 import os
 from datetime import datetime
 import random
+try:
+    import requests
+except ImportError:
+    requests = None
+import threading
 
 class RealisticNameGenerator:
     """Generate realistic fake names for database objects"""
@@ -223,18 +228,32 @@ class SyntaxHighlighter:
     
     def highlight_sql(self, content, highlight_masked=False, mapping_dict=None):
         """Apply syntax highlighting to SQL content"""
+        # Store cursor position
+        try:
+            cursor_pos = self.text_widget.index(tk.INSERT)
+        except:
+            cursor_pos = "1.0"
+        
+        # Clear existing content and tags
         self.text_widget.delete("1.0", tk.END)
         self.text_widget.insert(tk.END, content)
         
-        # Parse SQL
+        # Parse SQL with error handling
         try:
-            parsed = sqlparse.parse(content)
-            
-            for statement in parsed:
-                self._highlight_tokens(statement, "1.0", highlight_masked, mapping_dict)
+            if content.strip():  # Only parse if there's content
+                parsed = sqlparse.parse(content)
                 
+                for statement in parsed:
+                    self._highlight_tokens(statement, "1.0", highlight_masked, mapping_dict)
+                    
         except Exception as e:
             print(f"Highlighting error: {e}")
+        
+        # Restore cursor position
+        try:
+            self.text_widget.mark_set(tk.INSERT, cursor_pos)
+        except:
+            pass
     
     def _highlight_tokens(self, statement, start_pos, highlight_masked=False, mapping_dict=None):
         """Recursively highlight tokens"""
@@ -327,6 +346,15 @@ class EnhancedSQLMaskerGUI:
 
         # Initialize realistic name generator
         self.name_generator = RealisticNameGenerator()
+        
+        # AI Configuration
+        self.ai_enabled = False
+        self.ai_config = {
+            'api_key': '',
+            'api_provider': 'openai',  # openai, anthropic, custom
+            'base_url': '',
+            'model': 'gpt-3.5-turbo'
+        }
 
         # Enhanced SQL keywords including more comprehensive coverage
         self.sql_keywords = set(kw.lower() for kw in KEYWORDS.keys())
@@ -389,6 +417,7 @@ class EnhancedSQLMaskerGUI:
 
     def _setup_layout(self):
         self.root.grid_rowconfigure([1, 3, 5, 7, 9], weight=1)
+        self.root.grid_rowconfigure(11, weight=0)  # AI buttons row
         self.root.grid_columnconfigure(0, weight=4)
         self.root.grid_columnconfigure(1, weight=1)
 
@@ -418,6 +447,23 @@ class EnhancedSQLMaskerGUI:
         
         # Naming mode flag
         self.use_realistic_names = True
+        
+        # Add AI buttons row
+        ai_frame = tk.Frame(self.root)
+        ai_frame.grid(row=11, column=0, columnspan=2, pady=5, sticky="ew")
+        for i in range(4): ai_frame.columnconfigure(i, weight=1)
+        
+        self.ai_toggle_btn = tk.Button(ai_frame, text="🤖 Enable AI Features", command=self.toggle_ai_features, bg="#9E9E9E", fg="black")
+        self.ai_toggle_btn.grid(row=0, column=0, padx=5, sticky="ew")
+        
+        self.ai_config_btn = tk.Button(ai_frame, text="⚙️ AI Config", command=self.show_ai_config, state='disabled')
+        self.ai_config_btn.grid(row=0, column=1, padx=5, sticky="ew")
+        
+        self.ai_understand_btn = tk.Button(ai_frame, text="🧠 Understand Code", command=self.ai_understand_code, state='disabled', bg="#4CAF50", fg="black")
+        self.ai_understand_btn.grid(row=0, column=2, padx=5, sticky="ew")
+        
+        self.ai_modify_btn = tk.Button(ai_frame, text="✏️ Modify Code", command=self.ai_modify_code, state='disabled', bg="#2196F3", fg="black")
+        self.ai_modify_btn.grid(row=0, column=3, padx=5, sticky="ew")
 
     def _create_text_section(self, label_text, row, attr_name, readonly=False):
         label = tk.Label(self.root, text=label_text, font=('Arial', 10, 'bold'))
@@ -427,8 +473,20 @@ class EnhancedSQLMaskerGUI:
         text_widget = scrolledtext.ScrolledText(self.root, wrap=tk.WORD, height=8, font=('Consolas', 10))
         text_widget.grid(row=row+1, column=0, sticky="nsew", padx=10, pady=5)
         
+        # Ensure text widget is properly configured for input
+        text_widget.configure(
+            insertbackground='black',  # Cursor color
+            selectbackground='#0078d4',  # Selection color
+            selectforeground='white',
+            bg='white',
+            fg='black'
+        )
+        
         if readonly:
-            text_widget.configure(state='disabled')
+            text_widget.configure(state='disabled', bg='#f0f0f0')
+        else:
+            # Ensure normal state for input
+            text_widget.configure(state='normal')
         
         # Initialize syntax highlighter
         highlighter = SyntaxHighlighter(text_widget)
@@ -437,14 +495,36 @@ class EnhancedSQLMaskerGUI:
         setattr(self, attr_name, text_widget)
         self._add_copy_button(text_widget, row+2, 0)
         
-        # Bind text change events for real-time highlighting
+        # Bind text change events for real-time highlighting (with delay to avoid interference)
         if not readonly:
-            text_widget.bind('<KeyRelease>', lambda e, attr=attr_name: self._on_text_change(attr))
-            text_widget.bind('<Button-1>', lambda e, attr=attr_name: self._delayed_highlight(attr))
+            # Use a longer delay to avoid interfering with typing
+            text_widget.bind('<KeyRelease>', lambda e, attr=attr_name: self._on_text_change_delayed(attr))
+            text_widget.bind('<FocusIn>', lambda e, attr=attr_name: self._on_focus_in(attr))
+            text_widget.bind('<FocusOut>', lambda e, attr=attr_name: self._apply_highlighting(attr))
 
     def _on_text_change(self, attr_name):
         """Handle text changes for syntax highlighting"""
         self.root.after(500, lambda: self._apply_highlighting(attr_name))
+    
+    def _on_text_change_delayed(self, attr_name):
+        """Handle text changes with longer delay to avoid typing interference"""
+        # Cancel any pending highlighting
+        if hasattr(self, '_highlight_timer'):
+            try:
+                self.root.after_cancel(self._highlight_timer)
+            except:
+                pass
+        # Schedule highlighting with longer delay
+        self._highlight_timer = self.root.after(1500, lambda: self._apply_highlighting(attr_name))
+    
+    def _on_focus_in(self, attr_name):
+        """Handle focus in event"""
+        # Cancel highlighting when user starts typing
+        if hasattr(self, '_highlight_timer'):
+            try:
+                self.root.after_cancel(self._highlight_timer)
+            except:
+                pass
 
     def _delayed_highlight(self, attr_name):
         """Apply highlighting after a short delay"""
@@ -457,20 +537,68 @@ class EnhancedSQLMaskerGUI:
             content = text_widget.get("1.0", tk.END)
             
             if content.strip():
-                highlighter = self.highlighters[attr_name]
-                
-                # Get all mappings for highlighting masked/original items
-                all_mappings = {}
-                for mapping_dict in [self.catalog_map, self.schema_map, self.table_map,
-                                   self.column_map, self.string_map, self.function_map, self.alias_map]:
-                    all_mappings.update(mapping_dict)
-                
-                # Apply highlighting
-                highlight_masked = attr_name in ['masked_text', 'ai_text', 'unmasked_text']
-                highlighter.highlight_sql(content, highlight_masked, all_mappings)
+                # Use simple regex-based highlighting to avoid interfering with input
+                self._apply_simple_highlighting(text_widget, content, attr_name)
                 
         except Exception as e:
             print(f"Highlighting error for {attr_name}: {e}")
+    
+    def _apply_simple_highlighting(self, text_widget, content, attr_name):
+        """Apply simple regex-based highlighting that won't interfere with typing"""
+        try:
+            # Store current cursor position and selection
+            try:
+                cursor_pos = text_widget.index(tk.INSERT)
+                has_selection = False
+                sel_start = sel_end = None
+                try:
+                    sel_start = text_widget.index(tk.SEL_FIRST)
+                    sel_end = text_widget.index(tk.SEL_LAST)
+                    has_selection = True
+                except:
+                    pass
+            except:
+                cursor_pos = "1.0"
+                has_selection = False
+            
+            # Clear existing tags
+            for tag in ['keyword', 'string', 'comment', 'number', 'masked', 'original']:
+                text_widget.tag_delete(tag)
+            
+            # Apply basic highlighting using regex
+            import re
+            
+            # SQL Keywords (simple approach)
+            keyword_pattern = r'\b(?:SELECT|FROM|WHERE|INSERT|UPDATE|DELETE|CREATE|TABLE|INDEX|ALTER|DROP|JOIN|INNER|LEFT|RIGHT|OUTER|ON|GROUP|BY|ORDER|HAVING|UNION|DISTINCT|COUNT|SUM|AVG|MIN|MAX|AND|OR|NOT|IN|LIKE|BETWEEN|IS|NULL|AS|CASE|WHEN|THEN|ELSE|END)\b'
+            for match in re.finditer(keyword_pattern, content, re.IGNORECASE):
+                start_idx = f"1.0+{match.start()}c"
+                end_idx = f"1.0+{match.end()}c"
+                text_widget.tag_add('keyword', start_idx, end_idx)
+            
+            # String literals
+            string_pattern = r"'[^']*'|\"[^\"]*\""
+            for match in re.finditer(string_pattern, content):
+                start_idx = f"1.0+{match.start()}c"
+                end_idx = f"1.0+{match.end()}c"
+                text_widget.tag_add('string', start_idx, end_idx)
+            
+            # Comments
+            comment_pattern = r'--.*?$|/\*.*?\*/'
+            for match in re.finditer(comment_pattern, content, re.MULTILINE | re.DOTALL):
+                start_idx = f"1.0+{match.start()}c"
+                end_idx = f"1.0+{match.end()}c"
+                text_widget.tag_add('comment', start_idx, end_idx)
+            
+            # Restore cursor position and selection
+            try:
+                text_widget.mark_set(tk.INSERT, cursor_pos)
+                if has_selection:
+                    text_widget.tag_add(tk.SEL, sel_start, sel_end)
+            except:
+                pass
+                
+        except Exception as e:
+            print(f"Simple highlighting error: {e}")
 
     def toggle_naming_mode(self):
         """Toggle between realistic and generic naming"""
@@ -495,9 +623,19 @@ class EnhancedSQLMaskerGUI:
         self.copy_buttons.append(btn)
 
     def copy_text(self, widget, button):
-        widget.configure(state='normal')
+        # Check if widget is already in normal state
+        current_state = widget.cget('state')
+        
+        # Temporarily enable if disabled
+        if current_state == 'disabled':
+            widget.configure(state='normal')
+        
         content = widget.get("1.0", tk.END)
-        widget.configure(state='disabled')
+        
+        # Restore original state
+        if current_state == 'disabled':
+            widget.configure(state='disabled')
+        
         pyperclip.copy(content.strip())
         original_text = button['text']
         button.config(text="✅")
@@ -613,7 +751,7 @@ class EnhancedSQLMaskerGUI:
             
             # Remove duplicates and filter out qualified references
             all_columns = list(set(columns + additional_columns))
-            filtered_columns = [col for col in all_columns if not '.' in col and 
+            filtered_columns = [col for col in all_columns if '.' not in col and 
                               not self.is_sql_keyword_or_function(col)]
             
             return filtered_columns
@@ -964,7 +1102,7 @@ class EnhancedSQLMaskerGUI:
                 row += 1
 
             def make_callback(item_vars):
-                def callback(*args):
+                def callback(*_args):
                     value = category_var.get()
                     for v in item_vars:
                         v.set(value)
@@ -1461,8 +1599,956 @@ class EnhancedSQLMaskerGUI:
         copy_btn.pack(side=tk.LEFT, padx=5)
         
         tk.Button(button_frame, text="❌ Close", command=popup.destroy, 
-                 bg="#F44336", fg="white").pack(side=tk.LEFT, padx=5)
+                 bg="#F44336", fg="black").pack(side=tk.LEFT, padx=5)
 
+    def toggle_ai_features(self):
+        """Toggle AI features on/off"""
+        self.ai_enabled = not self.ai_enabled
+        
+        if self.ai_enabled:
+            # Check if requests module is available
+            if requests is None:
+                messagebox.showerror(
+                    "Missing Dependency", 
+                    "The 'requests' module is required for AI features.\n\n"
+                    "Please install it with:\npip install requests\n\n"
+                    "Then restart the application."
+                )
+                self.ai_enabled = False
+                return
+            
+            self.ai_toggle_btn.config(text="🤖 AI Enabled", bg="#4CAF50")
+            self.ai_config_btn.config(state='normal')
+            
+            # Check if API key is configured
+            if not self.ai_config['api_key']:
+                response = messagebox.askyesno(
+                    "AI Features", 
+                    "AI features enabled! Would you like to configure your API settings now?"
+                )
+                if response:
+                    self.show_ai_config()
+            else:
+                self.ai_understand_btn.config(state='normal')
+                self.ai_modify_btn.config(state='normal')
+                messagebox.showinfo("AI Features", "AI features enabled! You can now use AI to understand and modify code.")
+        else:
+            self.ai_toggle_btn.config(text="🤖 Enable AI Features", bg="#9E9E9E")
+            self.ai_config_btn.config(state='disabled')
+            self.ai_understand_btn.config(state='disabled')
+            self.ai_modify_btn.config(state='disabled')
+            messagebox.showinfo("AI Features", "AI features disabled.")
+    
+    def show_ai_config(self):
+        """Show AI configuration dialog"""
+        config_window = Toplevel(self.root)
+        config_window.title("AI Configuration")
+        config_window.geometry("600x500")
+        config_window.resizable(False, False)
+        
+        # Make it modal
+        config_window.transient(self.root)
+        config_window.grab_set()
+        
+        # Header
+        header_frame = tk.Frame(config_window, bg="#E3F2FD")
+        header_frame.pack(fill="x", padx=10, pady=10)
+        tk.Label(header_frame, text="🤖 AI Configuration", font=('Arial', 14, 'bold'), bg="#E3F2FD").pack(pady=5)
+        tk.Label(header_frame, text="Configure your AI provider settings", bg="#E3F2FD").pack()
+        
+        # Main form
+        form_frame = tk.Frame(config_window)
+        form_frame.pack(fill="both", expand=True, padx=20, pady=10)
+        
+        # API Provider
+        tk.Label(form_frame, text="API Provider:", font=('Arial', 10, 'bold')).grid(row=0, column=0, sticky="w", pady=5)
+        provider_var = tk.StringVar(value=self.ai_config['api_provider'])
+        provider_combo = ttk.Combobox(form_frame, textvariable=provider_var, values=['openai', 'anthropic', 'local_llm', 'custom'], state='readonly')
+        provider_combo.grid(row=0, column=1, sticky="ew", pady=5, padx=(10, 0))
+        
+        # API Key
+        tk.Label(form_frame, text="API Key:", font=('Arial', 10, 'bold')).grid(row=1, column=0, sticky="w", pady=5)
+        api_key_var = tk.StringVar(value=self.ai_config['api_key'])
+        api_key_entry = tk.Entry(form_frame, textvariable=api_key_var, show="*", width=40)
+        api_key_entry.grid(row=1, column=1, sticky="ew", pady=5, padx=(10, 0))
+        
+        # Show/Hide API Key
+        def toggle_api_key_visibility():
+            if api_key_entry['show'] == '*':
+                api_key_entry.config(show='')
+                show_key_btn.config(text="🙈 Hide")
+            else:
+                api_key_entry.config(show='*')
+                show_key_btn.config(text="👁️ Show")
+        
+        show_key_btn = tk.Button(form_frame, text="👁️ Show", command=toggle_api_key_visibility)
+        show_key_btn.grid(row=1, column=2, padx=(5, 0), pady=5)
+        
+        # Model
+        tk.Label(form_frame, text="Model:", font=('Arial', 10, 'bold')).grid(row=2, column=0, sticky="w", pady=5)
+        model_var = tk.StringVar(value=self.ai_config['model'])
+        model_entry = tk.Entry(form_frame, textvariable=model_var, width=40)
+        model_entry.grid(row=2, column=1, sticky="ew", pady=5, padx=(10, 0))
+        
+        # Base URL (for custom providers)
+        tk.Label(form_frame, text="Base URL (optional):", font=('Arial', 10, 'bold')).grid(row=3, column=0, sticky="w", pady=5)
+        base_url_var = tk.StringVar(value=self.ai_config['base_url'])
+        base_url_entry = tk.Entry(form_frame, textvariable=base_url_var, width=40)
+        base_url_entry.grid(row=3, column=1, sticky="ew", pady=5, padx=(10, 0))
+        
+        # Help text
+        help_frame = tk.Frame(config_window, bg="#FFF3E0")
+        help_frame.pack(fill="x", padx=10, pady=5)
+        
+        help_text = """💡 Help:
+• OpenAI: Use models like 'gpt-3.5-turbo', 'gpt-4'
+• Anthropic: Use models like 'claude-3-sonnet-20240229'
+• Local LLM: Use local models via Ollama (Base URL: http://localhost:11434/v1/chat/completions)
+• Custom: Provide your own base URL and model name
+• API keys are stored locally and never shared
+• For Local LLM, API key can be any value or leave empty
+• Available models: deepseek-coder-v2:latest, mistral:latest, llava:latest"""
+        
+        tk.Label(help_frame, text=help_text, bg="#FFF3E0", justify="left", font=('Arial', 9)).pack(padx=10, pady=10)
+        
+        # Configure grid weights
+        form_frame.grid_columnconfigure(1, weight=1)
+        
+        # Add model suggestions based on provider
+        def update_model_suggestions(*_args):
+            provider = provider_var.get()
+            if provider == 'openai':
+                model_var.set('gpt-3.5-turbo')
+                base_url_entry.config(state='disabled')
+                base_url_var.set('')
+                api_key_entry.config(state='normal')
+            elif provider == 'anthropic':
+                model_var.set('claude-3-sonnet-20240229')
+                base_url_entry.config(state='disabled')
+                base_url_var.set('')
+                api_key_entry.config(state='normal')
+            elif provider == 'local_llm':
+                model_var.set('deepseek-coder-v2:latest')  # Use your available model
+                base_url_entry.config(state='normal')
+                base_url_var.set('http://localhost:11434/v1/chat/completions')
+                api_key_entry.config(state='disabled')
+                api_key_var.set('local')  # Dummy key for local LLM
+            else:  # custom
+                model_var.set('gpt-3.5-turbo')
+                base_url_entry.config(state='normal')
+                api_key_entry.config(state='normal')
+        
+        provider_var.trace_add('write', update_model_suggestions)
+        update_model_suggestions()  # Initialize
+        
+        # Define save_config function first
+        def save_config():
+            # Validate inputs
+            api_key = api_key_var.get().strip()
+            provider = provider_var.get()
+            model = model_var.get().strip()
+            base_url = base_url_var.get().strip()
+            
+            # Basic validation
+            if not api_key and provider != 'local_llm':
+                messagebox.showwarning("Validation Error", "API Key is required for cloud providers.")
+                return
+            
+            if not model:
+                messagebox.showwarning("Validation Error", "Model name is required.")
+                return
+            
+            if (provider == 'custom' or provider == 'local_llm') and not base_url:
+                messagebox.showwarning("Validation Error", "Base URL is required for custom and local LLM providers.")
+                return
+            
+            # Save configuration
+            self.ai_config = {
+                'api_key': api_key,
+                'api_provider': provider,
+                'base_url': base_url,
+                'model': model
+            }
+            
+            if self.ai_config['api_key']:
+                self.ai_understand_btn.config(state='normal')
+                self.ai_modify_btn.config(state='normal')
+                messagebox.showinfo("Configuration Saved", "AI configuration saved successfully!")
+            else:
+                self.ai_understand_btn.config(state='disabled')
+                self.ai_modify_btn.config(state='disabled')
+                messagebox.showwarning("No API Key", "AI features will remain disabled without an API key.")
+            
+            config_window.destroy()
+        
+        # Test connection function
+        def test_connection():
+            test_config = {
+                'api_key': api_key_var.get(),
+                'api_provider': provider_var.get(),
+                'base_url': base_url_var.get(),
+                'model': model_var.get()
+            }
+            
+            if not test_config['api_key']:
+                messagebox.showwarning("Test Failed", "Please enter an API key first.")
+                return
+            
+            test_btn.config(text="Testing...", state='disabled')
+            
+            def run_test():
+                try:
+                    result = self._test_ai_connection(test_config)
+                    config_window.after(0, lambda: (
+                        messagebox.showinfo("Test Successful", "✅ Connection successful! AI features are ready to use.") if result
+                        else messagebox.showerror("Test Failed", "❌ Connection failed. Please check your settings.")
+                    ))
+                except Exception as e:
+                    config_window.after(0, lambda err=e: messagebox.showerror("Test Error", f"Test failed: {str(err)}"))
+                finally:
+                    config_window.after(0, lambda: test_btn.config(text="🔍 Test Connection", state='normal'))
+            
+            threading.Thread(target=run_test, daemon=True).start()
+        
+        # Buttons
+        button_frame = tk.Frame(config_window)
+        button_frame.pack(fill="x", padx=20, pady=10)
+        
+        test_btn = tk.Button(button_frame, text="🔍 Test Connection", command=test_connection, bg="#FF9800", fg="black")
+        test_btn.pack(side=tk.LEFT, padx=5)
+        
+        tk.Button(button_frame, text="💾 Save", command=save_config, bg="#4CAF50", fg="black").pack(side=tk.RIGHT, padx=5)
+        tk.Button(button_frame, text="❌ Cancel", command=config_window.destroy, bg="#F44336", fg="black").pack(side=tk.RIGHT, padx=5)
+    
+    def _test_ai_connection(self, config):
+        """Test AI API connection"""
+        if requests is None:
+            messagebox.showerror("Missing Dependency", "The 'requests' module is required for AI features. Please install it with: pip install requests")
+            return False
+        
+        try:
+            if config['api_provider'] == 'openai':
+                url = config['base_url'] or 'https://api.openai.com/v1/chat/completions'
+                headers = {
+                    'Authorization': f'Bearer {config["api_key"]}',
+                    'Content-Type': 'application/json'
+                }
+                data = {
+                    'model': config['model'],
+                    'messages': [{'role': 'user', 'content': 'Hello, this is a test.'}],
+                    'max_tokens': 10
+                }
+            elif config['api_provider'] == 'anthropic':
+                url = config['base_url'] or 'https://api.anthropic.com/v1/messages'
+                headers = {
+                    'x-api-key': config['api_key'],
+                    'Content-Type': 'application/json',
+                    'anthropic-version': '2023-06-01'
+                }
+                data = {
+                    'model': config['model'],
+                    'messages': [{'role': 'user', 'content': 'Hello, this is a test.'}],
+                    'max_tokens': 10
+                }
+            else:  # custom
+                if not config['base_url']:
+                    raise ValueError("Base URL is required for custom providers")
+                url = config['base_url']
+                headers = {
+                    'Authorization': f'Bearer {config["api_key"]}',
+                    'Content-Type': 'application/json'
+                }
+                data = {
+                    'model': config['model'],
+                    'messages': [{'role': 'user', 'content': 'Hello, this is a test.'}],
+                    'max_tokens': 10
+                }
+            
+            response = requests.post(url, headers=headers, json=data, timeout=10)
+            return response.status_code == 200
+            
+        except Exception as e:
+            print(f"AI connection test failed: {e}")
+            return False
+    
+    def choose_data_for_ai(self, title="Choose Data to Send"):
+        """Dialog to choose between masked or unmasked data for AI"""
+        choice_window = Toplevel(self.root)
+        choice_window.title(title)
+        choice_window.geometry("600x450")
+        choice_window.resizable(False, False)
+        
+        # Center the window
+        choice_window.geometry("+%d+%d" % (self.root.winfo_rootx() + 50, self.root.winfo_rooty() + 50))
+        
+        # Make it modal
+        choice_window.transient(self.root)
+        choice_window.grab_set()
+        
+        result = {'choice': None}
+        
+        # Header
+        header_frame = tk.Frame(choice_window, bg="#E8F5E8", relief="ridge", bd=1)
+        header_frame.pack(fill="x", padx=10, pady=10)
+        tk.Label(header_frame, text="🔒 Data Privacy Choice", font=('Arial', 16, 'bold'), bg="#E8F5E8").pack(pady=8)
+        tk.Label(header_frame, text="Choose what data to send to the AI service", font=('Arial', 11), bg="#E8F5E8").pack(pady=(0, 8))
+        
+        # Main content frame
+        content_frame = tk.Frame(choice_window)
+        content_frame.pack(fill="both", expand=True, padx=20, pady=10)
+        
+        # Radio button variable
+        choice_var = tk.StringVar(value="masked")
+        
+        # Masked data option
+        masked_frame = tk.Frame(content_frame, relief="solid", bd=2, bg="#E3F2FD")
+        masked_frame.pack(fill="x", pady=(0, 10))
+        
+        # Radio button for masked option
+        masked_radio_frame = tk.Frame(masked_frame, bg="#E3F2FD")
+        masked_radio_frame.pack(fill="x", padx=10, pady=8)
+        
+        tk.Radiobutton(
+            masked_radio_frame, 
+            text="🔒 Send Masked Data (Recommended)", 
+            font=('Arial', 12, 'bold'), 
+            bg="#E3F2FD",
+            variable=choice_var,
+            value="masked",
+            activebackground="#E3F2FD"
+        ).pack(anchor="w")
+        
+        # Description for masked option
+        masked_desc = tk.Frame(masked_frame, bg="#E3F2FD")
+        masked_desc.pack(fill="x", padx=20, pady=(0, 10))
+        
+        description_text = """✓ Table and column names are replaced with generic names
+✓ String values are anonymized
+✓ SQL structure is preserved
+✓ Safe for external AI services
+✓ Recommended for privacy protection"""
+        
+        tk.Label(masked_desc, text=description_text, bg="#E3F2FD", justify="left", font=('Arial', 10)).pack(anchor="w")
+        
+        # Unmasked data option
+        unmasked_frame = tk.Frame(content_frame, relief="solid", bd=2, bg="#FFEBEE")
+        unmasked_frame.pack(fill="x", pady=0)
+        
+        # Radio button for unmasked option
+        unmasked_radio_frame = tk.Frame(unmasked_frame, bg="#FFEBEE")
+        unmasked_radio_frame.pack(fill="x", padx=10, pady=8)
+        
+        tk.Radiobutton(
+            unmasked_radio_frame, 
+            text="🔓 Send Original Data (Use with caution)", 
+            font=('Arial', 12, 'bold'), 
+            bg="#FFEBEE",
+            variable=choice_var,
+            value="unmasked",
+            activebackground="#FFEBEE"
+        ).pack(anchor="w")
+        
+        # Description for unmasked option
+        unmasked_desc = tk.Frame(unmasked_frame, bg="#FFEBEE")
+        unmasked_desc.pack(fill="x", padx=20, pady=(0, 10))
+        
+        warning_text = """⚠ Original table and column names included
+⚠ Real string values included
+⚠ More context for AI analysis
+⚠ Only use with trusted AI services
+⚠ Consider data sensitivity before choosing"""
+        
+        tk.Label(unmasked_desc, text=warning_text, bg="#FFEBEE", justify="left", font=('Arial', 10)).pack(anchor="w")
+        
+        # Buttons
+        button_frame = tk.Frame(choice_window)
+        button_frame.pack(fill="x", padx=20, pady=15)
+        
+        def apply_choice():
+            result['choice'] = choice_var.get()
+            choice_window.destroy()
+        
+        def cancel_choice():
+            result['choice'] = None
+            choice_window.destroy()
+        
+        # Apply button
+        tk.Button(
+            button_frame, 
+            text="✅ Continue", 
+            command=apply_choice, 
+            bg="#4CAF50", 
+            fg="white", 
+            font=('Arial', 11, 'bold'),
+            padx=20,
+            pady=5
+        ).pack(side=tk.RIGHT, padx=5)
+        
+        # Cancel button
+        tk.Button(
+            button_frame, 
+            text="❌ Cancel", 
+            command=cancel_choice, 
+            bg="#F44336", 
+            fg="white",
+            font=('Arial', 11),
+            padx=20,
+            pady=5
+        ).pack(side=tk.RIGHT, padx=5)
+        
+        # Wait for user choice
+        choice_window.wait_window()
+        return result['choice']
+    
+    def ai_understand_code(self):
+        """Use AI to understand and explain the SQL code"""
+        if not self.ai_config['api_key']:
+            messagebox.showwarning("AI Not Configured", "Please configure AI settings first.")
+            self.show_ai_config()
+            return
+        
+        # Get current SQL
+        sql = self.input_text.get("1.0", tk.END).strip()
+        if not sql:
+            messagebox.showwarning("No SQL", "Please enter SQL code first.")
+            return
+        
+        # Choose data type
+        data_choice = self.choose_data_for_ai("Understanding Code - Choose Data")
+        if not data_choice:
+            return
+        
+        # Get appropriate SQL version
+        if data_choice == 'masked':
+            if not self.masked_text.get("1.0", tk.END).strip():
+                response = messagebox.askyesno("No Masked Data", "No masked SQL available. Would you like to mask the SQL first?")
+                if response:
+                    self.prepare_masking()
+                    return
+                else:
+                    return
+            analysis_sql = self.masked_text.get("1.0", tk.END).strip()
+        else:
+            analysis_sql = sql
+        
+        # Create progress window
+        progress_window = self._create_progress_window("Understanding SQL Code...")
+        
+        def analyze_code():
+            try:
+                prompt = f"""Please analyze and explain this SQL code in detail. Provide:
+1. Overall purpose and functionality
+2. Key components (tables, joins, filters, etc.)
+3. Data flow and logic
+4. Any potential issues or improvements
+5. Business context if apparent
+
+SQL Code:
+{analysis_sql}"""
+                
+                response = self._call_ai_api(prompt)
+                
+                if response:
+                    progress_window.after(0, lambda: self._show_ai_result("SQL Code Understanding", response, progress_window))
+                else:
+                    progress_window.after(0, lambda: (
+                        progress_window.destroy(),
+                        messagebox.showerror("AI Error", "Failed to get AI response. Please check your configuration.")
+                    ))
+                    
+            except Exception as e:
+                progress_window.after(0, lambda err=e: (
+                    progress_window.destroy(),
+                    messagebox.showerror("Error", f"AI analysis failed: {str(err)}")
+                ))
+        
+        threading.Thread(target=analyze_code, daemon=True).start()
+    
+    def ai_modify_code(self):
+        """Use AI to modify SQL code based on natural language instructions"""
+        if not self.ai_config['api_key']:
+            messagebox.showwarning("AI Not Configured", "Please configure AI settings first.")
+            self.show_ai_config()
+            return
+        
+        # Get current SQL
+        sql = self.input_text.get("1.0", tk.END).strip()
+        if not sql:
+            messagebox.showwarning("No SQL", "Please enter SQL code first.")
+            return
+        
+        # Get modification instructions
+        instruction_window = self._create_instruction_window()
+        if not instruction_window:
+            return
+        
+        instructions = instruction_window['instructions']
+        data_choice = instruction_window['data_choice']
+        
+        # Get appropriate SQL version
+        if data_choice == 'masked':
+            if not self.masked_text.get("1.0", tk.END).strip():
+                response = messagebox.askyesno("No Masked Data", "No masked SQL available. Would you like to mask the SQL first?")
+                if response:
+                    self.prepare_masking()
+                    return
+                else:
+                    return
+            modify_sql = self.masked_text.get("1.0", tk.END).strip()
+        else:
+            modify_sql = sql
+        
+        # Create progress window
+        progress_window = self._create_progress_window("Modifying SQL Code...")
+        
+        def modify_code():
+            try:
+                prompt = f"""Please modify the following SQL code according to these instructions:
+
+Instructions: {instructions}
+
+Original SQL:
+{modify_sql}
+
+Please provide:
+1. The modified SQL code
+2. Explanation of changes made
+3. Any assumptions or considerations
+
+Return the modified SQL in a clear, properly formatted way."""
+                
+                response = self._call_ai_api(prompt)
+                
+                if response:
+                    progress_window.after(0, lambda: self._show_modification_result(response, data_choice, progress_window))
+                else:
+                    progress_window.after(0, lambda: (
+                        progress_window.destroy(),
+                        messagebox.showerror("AI Error", "Failed to get AI response. Please check your configuration.")
+                    ))
+                    
+            except Exception as e:
+                progress_window.after(0, lambda err=e: (
+                    progress_window.destroy(),
+                    messagebox.showerror("Error", f"AI modification failed: {str(err)}")
+                ))
+        
+        threading.Thread(target=modify_code, daemon=True).start()
+    
+    def _create_instruction_window(self):
+        """Create window to get modification instructions from user"""
+        instruction_window = Toplevel(self.root)
+        instruction_window.title("AI Code Modification")
+        instruction_window.geometry("600x400")
+        
+        # Make it modal
+        instruction_window.transient(self.root)
+        instruction_window.grab_set()
+        
+        result = {'instructions': None, 'data_choice': None}
+        
+        # Header
+        header_frame = tk.Frame(instruction_window, bg="#E8F5E8")
+        header_frame.pack(fill="x", padx=10, pady=10)
+        tk.Label(header_frame, text="✏️ AI Code Modification", font=('Arial', 14, 'bold'), bg="#E8F5E8").pack(pady=5)
+        tk.Label(header_frame, text="Describe how you want to modify the SQL code", bg="#E8F5E8").pack()
+        
+        # Instructions input
+        tk.Label(instruction_window, text="Modification Instructions:", font=('Arial', 10, 'bold')).pack(anchor="w", padx=20, pady=(10, 5))
+        
+        instructions_text = scrolledtext.ScrolledText(instruction_window, height=8, font=('Arial', 10))
+        instructions_text.pack(fill="both", expand=True, padx=20, pady=5)
+        
+        # Placeholder text
+        placeholder = "Example instructions:\n• Add a WHERE clause to filter by date\n• Include a GROUP BY clause\n• Join with another table\n• Add calculated columns\n• Optimize the query performance\n• Convert to a CTE structure"
+        instructions_text.insert("1.0", placeholder)
+        instructions_text.bind('<FocusIn>', lambda e: instructions_text.delete("1.0", tk.END) if instructions_text.get("1.0", tk.END).strip() == placeholder else None)
+        
+        # Data choice
+        data_frame = tk.Frame(instruction_window)
+        data_frame.pack(fill="x", padx=20, pady=10)
+        
+        tk.Label(data_frame, text="Data to send to AI:", font=('Arial', 10, 'bold')).pack(anchor="w")
+        
+        data_choice_var = tk.StringVar(value="masked")
+        tk.Radiobutton(data_frame, text="🔒 Masked data (recommended)", variable=data_choice_var, value="masked").pack(anchor="w")
+        tk.Radiobutton(data_frame, text="🔓 Original data (use with caution)", variable=data_choice_var, value="unmasked").pack(anchor="w")
+        
+        # Buttons
+        button_frame = tk.Frame(instruction_window)
+        button_frame.pack(fill="x", padx=20, pady=10)
+        
+        def apply_modification():
+            instructions = instructions_text.get("1.0", tk.END).strip()
+            if not instructions or instructions == placeholder:
+                messagebox.showwarning("No Instructions", "Please provide modification instructions.")
+                return
+            
+            result['instructions'] = instructions
+            result['data_choice'] = data_choice_var.get()
+            instruction_window.destroy()
+        
+        tk.Button(button_frame, text="✏️ Modify Code", command=apply_modification, bg="#4CAF50", fg="black", font=('Arial', 10, 'bold')).pack(side=tk.RIGHT, padx=5)
+        tk.Button(button_frame, text="❌ Cancel", command=instruction_window.destroy, bg="#F44336", fg="black").pack(side=tk.RIGHT, padx=5)
+        
+        # Wait for user input
+        instruction_window.wait_window()
+        return result if result['instructions'] else None
+    
+    def _create_progress_window(self, message):
+        """Create a progress window for AI operations"""
+        progress_window = Toplevel(self.root)
+        progress_window.title("AI Processing")
+        progress_window.geometry("300x100")
+        progress_window.resizable(False, False)
+        
+        # Make it modal
+        progress_window.transient(self.root)
+        progress_window.grab_set()
+        
+        # Center the window
+        progress_window.geometry("+%d+%d" % (self.root.winfo_rootx() + 50, self.root.winfo_rooty() + 50))
+        
+        tk.Label(progress_window, text=message, font=('Arial', 10)).pack(pady=20)
+        
+        # Progress bar
+        progress_bar = ttk.Progressbar(progress_window, mode='indeterminate')
+        progress_bar.pack(pady=10, padx=20, fill="x")
+        progress_bar.start()
+        
+        return progress_window
+    
+    def _call_ai_api(self, prompt):
+        """Make API call to AI service"""
+        if requests is None:
+            messagebox.showerror("Missing Dependency", "The 'requests' module is required for AI features. Please install it with: pip install requests")
+            return None
+        
+        try:
+            config = self.ai_config
+            
+            if config['api_provider'] == 'openai':
+                url = config['base_url'] or 'https://api.openai.com/v1/chat/completions'
+                headers = {
+                    'Authorization': f'Bearer {config["api_key"]}',
+                    'Content-Type': 'application/json'
+                }
+                data = {
+                    'model': config['model'],
+                    'messages': [{'role': 'user', 'content': prompt}],
+                    'max_tokens': 2000
+                }
+                
+                response = requests.post(url, headers=headers, json=data, timeout=30)
+                response.raise_for_status()
+                return response.json()['choices'][0]['message']['content']
+                
+            elif config['api_provider'] == 'anthropic':
+                url = config['base_url'] or 'https://api.anthropic.com/v1/messages'
+                headers = {
+                    'x-api-key': config['api_key'],
+                    'Content-Type': 'application/json',
+                    'anthropic-version': '2023-06-01'
+                }
+                data = {
+                    'model': config['model'],
+                    'messages': [{'role': 'user', 'content': prompt}],
+                    'max_tokens': 2000
+                }
+                
+                response = requests.post(url, headers=headers, json=data, timeout=30)
+                response.raise_for_status()
+                return response.json()['content'][0]['text']
+                
+            elif config['api_provider'] == 'local_llm':
+                # Ollama API call
+                url = config['base_url'] or 'http://localhost:11434/v1/chat/completions'
+                headers = {
+                    'Content-Type': 'application/json'
+                }
+                data = {
+                    'model': config['model'],
+                    'messages': [{'role': 'user', 'content': prompt}],
+                    'max_tokens': 2000,
+                    'stream': False
+                }
+                
+                response = requests.post(url, headers=headers, json=data, timeout=60)
+                response.raise_for_status()
+                return response.json()['choices'][0]['message']['content']
+                
+            else:  # custom
+                url = config['base_url']
+                headers = {
+                    'Authorization': f'Bearer {config["api_key"]}',
+                    'Content-Type': 'application/json'
+                }
+                data = {
+                    'model': config['model'],
+                    'messages': [{'role': 'user', 'content': prompt}],
+                    'max_tokens': 2000
+                }
+                
+                response = requests.post(url, headers=headers, json=data, timeout=30)
+                response.raise_for_status()
+                return response.json()['choices'][0]['message']['content']
+                
+        except Exception as e:
+            print(f"AI API call failed: {e}")
+            return None
+    
+    def _show_ai_result(self, title, content, progress_window):
+        """Show AI analysis result in a popup window with conversation capability"""
+        progress_window.destroy()
+        
+        result_window = Toplevel(self.root)
+        result_window.title(title)
+        result_window.geometry("1000x800")
+        
+        # Make it resizable
+        result_window.resizable(True, True)
+        
+        # Header
+        header_frame = tk.Frame(result_window, bg="#E8F5E8")
+        header_frame.pack(fill="x", padx=10, pady=10)
+        tk.Label(header_frame, text=f"🤖 {title}", font=('Arial', 14, 'bold'), bg="#E8F5E8").pack(pady=5)
+        
+        # Create main container with PanedWindow for resizable sections
+        main_paned = tk.PanedWindow(result_window, orient=tk.VERTICAL, sashrelief=tk.RAISED)
+        main_paned.pack(fill="both", expand=True, padx=10, pady=5)
+        
+        # Top frame for AI response
+        top_frame = tk.Frame(main_paned)
+        main_paned.add(top_frame, minsize=200)
+        
+        # AI Response label
+        tk.Label(top_frame, text="AI Analysis:", font=('Arial', 11, 'bold')).pack(anchor="w", padx=5, pady=2)
+        
+        # Content (AI response)
+        ai_text_widget = scrolledtext.ScrolledText(top_frame, wrap=tk.WORD, font=('Arial', 10), height=15)
+        ai_text_widget.pack(fill="both", expand=True, padx=5, pady=2)
+        ai_text_widget.insert("1.0", content)
+        ai_text_widget.configure(state='disabled')
+        
+        # Bottom frame for conversation
+        bottom_frame = tk.Frame(main_paned)
+        main_paned.add(bottom_frame, minsize=200)
+        
+        # Conversation label
+        tk.Label(bottom_frame, text="💬 Continue Conversation:", font=('Arial', 11, 'bold')).pack(anchor="w", padx=5, pady=2)
+        
+        # Conversation history
+        conversation_text = scrolledtext.ScrolledText(bottom_frame, wrap=tk.WORD, font=('Arial', 9), height=10, bg="#F5F5F5")
+        conversation_text.pack(fill="both", expand=True, padx=5, pady=2)
+        conversation_text.configure(state='disabled')
+        
+        # Input frame for new questions
+        input_frame = tk.Frame(bottom_frame)
+        input_frame.pack(fill="x", padx=5, pady=5)
+        
+        # Question input
+        tk.Label(input_frame, text="Ask about this SQL:", font=('Arial', 9)).pack(anchor="w")
+        question_entry = tk.Text(input_frame, height=3, font=('Arial', 10))
+        question_entry.pack(fill="x", pady=2)
+        
+        # Store conversation history and SQL context
+        conversation_history = []
+        sql_context = self.input_text.get("1.0", tk.END).strip()
+        
+        def ask_question():
+            question = question_entry.get("1.0", tk.END).strip()
+            if not question:
+                messagebox.showwarning("Empty Question", "Please enter a question about the SQL.")
+                return
+            
+            # Add question to conversation
+            conversation_text.configure(state='normal')
+            conversation_text.insert(tk.END, f"\n🙋 You: {question}\n")
+            conversation_text.configure(state='disabled')
+            conversation_text.see(tk.END)
+            
+            # Clear input
+            question_entry.delete("1.0", tk.END)
+            
+            # Disable ask button during processing
+            ask_btn.config(state='disabled', text="🤔 Thinking...")
+            
+            def get_ai_response():
+                try:
+                    # Build conversation context
+                    context = f"SQL Code:\n{sql_context}\n\nPrevious Analysis:\n{content}\n\n"
+                    if conversation_history:
+                        context += "Previous Questions and Answers:\n"
+                        for i, (q, a) in enumerate(conversation_history):
+                            context += f"Q{i+1}: {q}\nA{i+1}: {a}\n\n"
+                    
+                    prompt = f"""{context}New Question: {question}
+
+Please answer this specific question about the SQL code. Be concise and focused on the question asked."""
+                    
+                    response = self._call_ai_api(prompt)
+                    
+                    if response:
+                        # Add to conversation history
+                        conversation_history.append((question, response))
+                        
+                        # Update UI in main thread
+                        result_window.after(0, lambda: update_conversation(response))
+                    else:
+                        result_window.after(0, lambda: show_error("Failed to get AI response. Please check your configuration."))
+                        
+                except Exception as e:
+                    result_window.after(0, lambda err=e: show_error(f"Error: {str(err)}"))
+            
+            def update_conversation(response):
+                conversation_text.configure(state='normal')
+                conversation_text.insert(tk.END, f"🤖 AI: {response}\n{'-'*50}\n")
+                conversation_text.configure(state='disabled')
+                conversation_text.see(tk.END)
+                ask_btn.config(state='normal', text="💬 Ask")
+            
+            def show_error(error_msg):
+                conversation_text.configure(state='normal')
+                conversation_text.insert(tk.END, f"❌ Error: {error_msg}\n{'-'*50}\n")
+                conversation_text.configure(state='disabled')
+                conversation_text.see(tk.END)
+                ask_btn.config(state='normal', text="💬 Ask")
+            
+            # Run AI call in background thread
+            threading.Thread(target=get_ai_response, daemon=True).start()
+        
+        # Question buttons
+        question_btn_frame = tk.Frame(input_frame)
+        question_btn_frame.pack(fill="x", pady=2)
+        
+        ask_btn = tk.Button(question_btn_frame, text="💬 Ask", command=ask_question, bg="#4CAF50", fg="white")
+        ask_btn.pack(side=tk.LEFT, padx=2)
+        
+        # Quick question buttons
+        def quick_question(q):
+            question_entry.delete("1.0", tk.END)
+            question_entry.insert("1.0", q)
+        
+        quick_questions = [
+            "What tables are being used?",
+            "Explain the joins in this query",
+            "What filters are applied?",
+            "How can I optimize this query?",
+            "What does this query return?"
+        ]
+        
+        for i, q in enumerate(quick_questions):
+            btn = tk.Button(question_btn_frame, text=f"Q{i+1}", command=lambda quest=q: quick_question(quest), 
+                          bg="#2196F3", fg="white", font=('Arial', 8))
+            btn.pack(side=tk.LEFT, padx=1)
+        
+        # Buttons frame
+        button_frame = tk.Frame(result_window)
+        button_frame.pack(fill="x", padx=10, pady=10)
+        
+        def copy_result():
+            # Copy both analysis and conversation
+            full_content = f"AI Analysis:\n{content}\n\n"
+            if conversation_history:
+                full_content += "Conversation:\n"
+                for q, a in conversation_history:
+                    full_content += f"Q: {q}\nA: {a}\n\n"
+            pyperclip.copy(full_content)
+            copy_btn.config(text="✅ Copied!")
+            result_window.after(2000, lambda: copy_btn.config(text="📋 Copy All"))
+        
+        copy_btn = tk.Button(button_frame, text="📋 Copy All", command=copy_result, bg="#607D8B", fg="white")
+        copy_btn.pack(side=tk.LEFT, padx=5)
+        
+        tk.Button(button_frame, text="❌ Close", command=result_window.destroy, bg="#F44336", fg="white").pack(side=tk.RIGHT, padx=5)
+        
+        # Bind Enter key to ask question
+        def on_enter(event):
+            if event.state & 0x4:  # Ctrl+Enter
+                ask_question()
+                return "break"
+        
+        question_entry.bind("<Control-Return>", on_enter)
+    
+    def _show_modification_result(self, response, data_choice, progress_window):
+        """Show AI modification result with option to apply changes"""
+        progress_window.destroy()
+        
+        result_window = Toplevel(self.root)
+        result_window.title("AI Code Modification Result")
+        result_window.geometry("1000x800")
+        
+        # Header
+        header_frame = tk.Frame(result_window, bg="#E8F5E8")
+        header_frame.pack(fill="x", padx=10, pady=10)
+        tk.Label(header_frame, text="✏️ Modified SQL Code", font=('Arial', 14, 'bold'), bg="#E8F5E8").pack(pady=5)
+        
+        # Content
+        text_widget = scrolledtext.ScrolledText(result_window, wrap=tk.WORD, font=('Consolas', 10))
+        text_widget.pack(fill="both", expand=True, padx=10, pady=5)
+        text_widget.insert("1.0", response)
+        
+        # Buttons
+        button_frame = tk.Frame(result_window)
+        button_frame.pack(fill="x", padx=10, pady=10)
+        
+        def apply_to_ai_text():
+            # Extract SQL from AI response (attempt to find SQL code blocks)
+            content = text_widget.get("1.0", tk.END)
+            
+            # Try to extract SQL from code blocks
+            sql_matches = re.finditer(r'```(?:sql)?\s*\n(.*?)\n```', content, re.DOTALL | re.IGNORECASE)
+            sql_code = None
+            
+            for match in sql_matches:
+                sql_code = match.group(1).strip()
+                break
+            
+            if not sql_code:
+                # If no code blocks found, ask user to select SQL manually
+                response_msg = messagebox.askyesno(
+                    "Extract SQL", 
+                    "No SQL code block found in the response. Would you like to copy the entire response to the AI text area?"
+                )
+                if response_msg:
+                    sql_code = content
+                else:
+                    return
+            
+            if data_choice == 'masked':
+                # Apply to AI text area (will need unmasking later)
+                self.ai_text.delete("1.0", tk.END)
+                self.ai_text.insert(tk.END, sql_code)
+                self._apply_highlighting('ai_text')
+                messagebox.showinfo("Applied", "Modified SQL applied to AI text area. You can now unmask it to see the final result.")
+            else:
+                # Apply to original input (direct replacement)
+                response_msg = messagebox.askyesno(
+                    "Replace Original", 
+                    "This will replace your original SQL. Do you want to proceed?"
+                )
+                if response_msg:
+                    self.input_text.delete("1.0", tk.END)
+                    self.input_text.insert(tk.END, sql_code)
+                    self._apply_highlighting('input_text')
+                    messagebox.showinfo("Applied", "Modified SQL applied to original input area.")
+            
+            result_window.destroy()
+        
+        def copy_result():
+            content = text_widget.get("1.0", tk.END)
+            pyperclip.copy(content)
+            copy_btn.config(text="✅ Copied!")
+            result_window.after(2000, lambda: copy_btn.config(text="📋 Copy"))
+        
+        copy_btn = tk.Button(button_frame, text="📋 Copy", command=copy_result, bg="#607D8B", fg="white")
+        copy_btn.pack(side=tk.LEFT, padx=5)
+        
+        apply_btn = tk.Button(button_frame, text="✅ Apply Changes", command=apply_to_ai_text, bg="#4CAF50", fg="white")
+        apply_btn.pack(side=tk.LEFT, padx=5)
+        
+        tk.Button(button_frame, text="❌ Close", command=result_window.destroy, bg="#F44336", fg="white").pack(side=tk.RIGHT, padx=5)
+    
     def load_file(self):
         """Load SQL file with enhanced error handling and encoding detection"""
         try:
