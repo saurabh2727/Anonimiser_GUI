@@ -24,136 +24,40 @@ class AIInterface:
         """Show AI analysis result with conversation capability"""
         result_window = Toplevel()
         result_window.title(title)
-        result_window.geometry("1200x900")
+        result_window.geometry("1000x800")
         result_window.resizable(True, True)
         
-        # Font size tracking for zoom functionality
-        self.ai_response_font_size = 10
-        self.conversation_font_size = 9
-        self.question_font_size = 10
-        
-        # Header with zoom controls
+        # Header
         header_frame = tk.Frame(result_window, bg="#E8F5E8")
         header_frame.pack(fill="x", padx=10, pady=10)
-        
-        # Title and zoom controls in same row
-        title_frame = tk.Frame(header_frame, bg="#E8F5E8")
-        title_frame.pack(fill="x")
-        
-        tk.Label(title_frame, text=f"🤖 {title}", font=('Arial', 16, 'bold'), bg="#E8F5E8").pack(side=tk.LEFT, pady=5)
-        
-        # Zoom controls
-        zoom_frame = tk.Frame(title_frame, bg="#E8F5E8")
-        zoom_frame.pack(side=tk.RIGHT, pady=5)
-        
-        def zoom_all_in():
-            if self.ai_response_font_size < 18:
-                self.ai_response_font_size += 1
-                ai_text_widget.config(font=('Arial', self.ai_response_font_size))
-            if self.conversation_font_size < 16:
-                self.conversation_font_size += 1
-                conversation_text.config(font=('Arial', self.conversation_font_size))
-            if self.question_font_size < 16:
-                self.question_font_size += 1
-                question_entry.config(font=('Arial', self.question_font_size))
-        
-        def zoom_all_out():
-            if self.ai_response_font_size > 8:
-                self.ai_response_font_size -= 1
-                ai_text_widget.config(font=('Arial', self.ai_response_font_size))
-            if self.conversation_font_size > 7:
-                self.conversation_font_size -= 1
-                conversation_text.config(font=('Arial', self.conversation_font_size))
-            if self.question_font_size > 8:
-                self.question_font_size -= 1
-                question_entry.config(font=('Arial', self.question_font_size))
-        
-        def reset_zoom():
-            self.ai_response_font_size = 10
-            self.conversation_font_size = 9
-            self.question_font_size = 10
-            ai_text_widget.config(font=('Arial', 10))
-            conversation_text.config(font=('Arial', 9))
-            question_entry.config(font=('Arial', 10))
-        
-        tk.Button(zoom_frame, text="🔍+", command=zoom_all_in, bg="#2196F3", fg="white", 
-                 font=('Arial', 10)).pack(side=tk.LEFT, padx=2)
-        tk.Button(zoom_frame, text="🔍-", command=zoom_all_out, bg="#2196F3", fg="white",
-                 font=('Arial', 10)).pack(side=tk.LEFT, padx=2)
-        tk.Button(zoom_frame, text="Reset", command=reset_zoom, bg="#FF9800", fg="white",
-                 font=('Arial', 9)).pack(side=tk.LEFT, padx=2)
-        tk.Label(zoom_frame, text="Zoom All Sections", font=('Arial', 9), bg="#E8F5E8").pack(side=tk.LEFT, padx=5)
+        tk.Label(header_frame, text=f"🤖 {title}", font=('Arial', 14, 'bold'), bg="#E8F5E8").pack(pady=5)
         
         # Create main container with PanedWindow for resizable sections
-        main_paned = tk.PanedWindow(result_window, orient=tk.VERTICAL, sashrelief=tk.RAISED, sashwidth=8)
+        main_paned = tk.PanedWindow(result_window, orient=tk.VERTICAL, sashrelief=tk.RAISED)
         main_paned.pack(fill="both", expand=True, padx=10, pady=5)
         
-        # Top frame for AI response (bigger default size)
+        # Top frame for AI response
         top_frame = tk.Frame(main_paned)
-        main_paned.add(top_frame, minsize=300)
+        main_paned.add(top_frame, minsize=200)
         
-        # AI Response header with individual zoom controls
-        ai_header_frame = tk.Frame(top_frame)
-        ai_header_frame.pack(fill="x", padx=5, pady=2)
+        # AI Response label
+        tk.Label(top_frame, text="AI Analysis:", font=('Arial', 11, 'bold')).pack(anchor="w", padx=5, pady=2)
         
-        tk.Label(ai_header_frame, text="🤖 AI Analysis:", font=('Arial', 12, 'bold')).pack(side=tk.LEFT, anchor="w")
-        
-        # Individual zoom controls for AI response
-        ai_zoom_frame = tk.Frame(ai_header_frame)
-        ai_zoom_frame.pack(side=tk.RIGHT)
-        
-        def zoom_ai_in():
-            if self.ai_response_font_size < 18:
-                self.ai_response_font_size += 1
-                ai_text_widget.config(font=('Arial', self.ai_response_font_size))
-        
-        def zoom_ai_out():
-            if self.ai_response_font_size > 8:
-                self.ai_response_font_size -= 1
-                ai_text_widget.config(font=('Arial', self.ai_response_font_size))
-        
-        tk.Button(ai_zoom_frame, text="🔍+", command=zoom_ai_in, bg="#4CAF50", fg="white", 
-                 font=('Arial', 8)).pack(side=tk.LEFT, padx=1)
-        tk.Button(ai_zoom_frame, text="🔍-", command=zoom_ai_out, bg="#4CAF50", fg="white",
-                 font=('Arial', 8)).pack(side=tk.LEFT, padx=1)
-        
-        # Content (AI response) - larger default size
-        ai_text_widget = scrolledtext.ScrolledText(top_frame, wrap=tk.WORD, font=('Arial', 10), height=20)
+        # Content (AI response)
+        ai_text_widget = scrolledtext.ScrolledText(top_frame, wrap=tk.WORD, font=('Arial', 10), height=15)
         ai_text_widget.pack(fill="both", expand=True, padx=5, pady=2)
         ai_text_widget.insert("1.0", content)
         ai_text_widget.configure(state='disabled')
         
-        # Bottom frame for conversation (bigger default size)
+        # Bottom frame for conversation
         bottom_frame = tk.Frame(main_paned)
-        main_paned.add(bottom_frame, minsize=300)
+        main_paned.add(bottom_frame, minsize=200)
         
-        # Conversation header with individual zoom controls
-        conv_header_frame = tk.Frame(bottom_frame)
-        conv_header_frame.pack(fill="x", padx=5, pady=2)
+        # Conversation label
+        tk.Label(bottom_frame, text="💬 Continue Conversation:", font=('Arial', 11, 'bold')).pack(anchor="w", padx=5, pady=2)
         
-        tk.Label(conv_header_frame, text="💬 Continue Conversation:", font=('Arial', 12, 'bold')).pack(side=tk.LEFT, anchor="w")
-        
-        # Individual zoom controls for conversation
-        conv_zoom_frame = tk.Frame(conv_header_frame)
-        conv_zoom_frame.pack(side=tk.RIGHT)
-        
-        def zoom_conv_in():
-            if self.conversation_font_size < 16:
-                self.conversation_font_size += 1
-                conversation_text.config(font=('Arial', self.conversation_font_size))
-        
-        def zoom_conv_out():
-            if self.conversation_font_size > 7:
-                self.conversation_font_size -= 1
-                conversation_text.config(font=('Arial', self.conversation_font_size))
-        
-        tk.Button(conv_zoom_frame, text="🔍+", command=zoom_conv_in, bg="#9C27B0", fg="white", 
-                 font=('Arial', 8)).pack(side=tk.LEFT, padx=1)
-        tk.Button(conv_zoom_frame, text="🔍-", command=zoom_conv_out, bg="#9C27B0", fg="white",
-                 font=('Arial', 8)).pack(side=tk.LEFT, padx=1)
-        
-        # Conversation history - larger default size
-        conversation_text = scrolledtext.ScrolledText(bottom_frame, wrap=tk.WORD, font=('Arial', 9), height=15, bg="#F5F5F5")
+        # Conversation history
+        conversation_text = scrolledtext.ScrolledText(bottom_frame, wrap=tk.WORD, font=('Arial', 9), height=10, bg="#F5F5F5")
         conversation_text.pack(fill="both", expand=True, padx=5, pady=2)
         conversation_text.configure(state='disabled')
         
@@ -161,33 +65,9 @@ class AIInterface:
         input_frame = tk.Frame(bottom_frame)
         input_frame.pack(fill="x", padx=5, pady=5)
         
-        # Question input header with zoom controls
-        question_header_frame = tk.Frame(input_frame)
-        question_header_frame.pack(fill="x", pady=2)
-        
-        tk.Label(question_header_frame, text="❓ Ask about this SQL:", font=('Arial', 11, 'bold')).pack(side=tk.LEFT, anchor="w")
-        
-        # Individual zoom controls for question input
-        question_zoom_frame = tk.Frame(question_header_frame)
-        question_zoom_frame.pack(side=tk.RIGHT)
-        
-        def zoom_question_in():
-            if self.question_font_size < 16:
-                self.question_font_size += 1
-                question_entry.config(font=('Arial', self.question_font_size))
-        
-        def zoom_question_out():
-            if self.question_font_size > 8:
-                self.question_font_size -= 1
-                question_entry.config(font=('Arial', self.question_font_size))
-        
-        tk.Button(question_zoom_frame, text="🔍+", command=zoom_question_in, bg="#FF5722", fg="white", 
-                 font=('Arial', 8)).pack(side=tk.LEFT, padx=1)
-        tk.Button(question_zoom_frame, text="🔍-", command=zoom_question_out, bg="#FF5722", fg="white",
-                 font=('Arial', 8)).pack(side=tk.LEFT, padx=1)
-        
-        # Question input - larger default size
-        question_entry = tk.Text(input_frame, height=4, font=('Arial', 10))
+        # Question input
+        tk.Label(input_frame, text="Ask about this SQL:", font=('Arial', 9)).pack(anchor="w")
+        question_entry = tk.Text(input_frame, height=3, font=('Arial', 10))
         question_entry.pack(fill="x", pady=2)
         
         # Store conversation history and SQL context
@@ -211,7 +91,7 @@ class AIInterface:
             question_entry.delete("1.0", tk.END)
             
             # Disable ask button during processing
-            ask_btn.config(state='disabled', text="🤔 Thinking...")
+            ask_btn.config(state='disabled', text="Thinking...")
             
             def get_ai_response():
                 try:
@@ -242,7 +122,7 @@ Please answer this specific question about the SQL code. Be concise and focused 
             
             def update_conversation(response):
                 conversation_text.configure(state='normal')
-                conversation_text.insert(tk.END, f"🤖 AI: {response}\n{'-'*50}\n")
+                conversation_text.insert(tk.END, f"AI: {response}\n{'-'*50}\n")
                 conversation_text.configure(state='disabled')
                 conversation_text.see(tk.END)
                 ask_btn.config(state='normal', text="💬 Ask")
@@ -257,20 +137,12 @@ Please answer this specific question about the SQL code. Be concise and focused 
             # Run AI call in background thread
             threading.Thread(target=get_ai_response, daemon=True).start()
         
-        # Question buttons - larger and better organized
+        # Question buttons
         question_btn_frame = tk.Frame(input_frame)
-        question_btn_frame.pack(fill="x", pady=8)
+        question_btn_frame.pack(fill="x", pady=2)
         
-        # Ask button - larger and more prominent
-        ask_btn = tk.Button(question_btn_frame, text="💬 Ask Question", command=ask_question, 
-                           bg="#4CAF50", fg="white", font=('Arial', 11, 'bold'),
-                           relief=tk.RAISED, bd=3, padx=10, pady=5)
-        ask_btn.pack(side=tk.LEFT, padx=8)
-        
-        # Separator with better styling
-        separator = tk.Label(question_btn_frame, text="🔥 Quick Questions:", 
-                           font=('Arial', 10, 'bold'), fg="#666666")
-        separator.pack(side=tk.LEFT, padx=15)
+        ask_btn = tk.Button(question_btn_frame, text="💬 Ask", command=ask_question, bg="#4CAF50", fg="black")
+        ask_btn.pack(side=tk.LEFT, padx=2)
         
         # Quick question buttons
         def quick_question(q):
@@ -278,40 +150,17 @@ Please answer this specific question about the SQL code. Be concise and focused 
             question_entry.insert("1.0", q)
         
         quick_questions = [
-            ("What tables are being used?", "📊 Tables"),
-            ("Explain the joins in this query", "🔗 Joins"),
-            ("What filters are applied?", "🔍 Filters"),
-            ("How can I optimize this query?", "⚡ Optimize"),
-            ("What does this query return?", "📤 Output")
+            "What tables are being used?",
+            "Explain the joins in this query",
+            "What filters are applied?",
+            "How can I optimize this query?",
+            "What does this query return?"
         ]
         
-        for question, button_text in quick_questions:
-            btn = tk.Button(question_btn_frame, text=button_text, 
-                          command=lambda quest=question: quick_question(quest), 
-                          bg="#2196F3", fg="white", font=('Arial', 10),
-                          relief=tk.RAISED, bd=2, padx=8, pady=3)
-            btn.pack(side=tk.LEFT, padx=3)
-            
-            # Add tooltip functionality
-            def create_tooltip(widget, text):
-                def on_enter(event):
-                    tooltip = tk.Toplevel()
-                    tooltip.wm_overrideredirect(True)
-                    tooltip.wm_geometry(f"+{event.x_root+10}+{event.y_root+10}")
-                    label = tk.Label(tooltip, text=text, background="#ffffe0", 
-                                   relief=tk.SOLID, borderwidth=1, font=('Arial', 8))
-                    label.pack()
-                    widget.tooltip = tooltip
-                
-                def on_leave(event):
-                    if hasattr(widget, 'tooltip'):
-                        widget.tooltip.destroy()
-                        del widget.tooltip
-                
-                widget.bind("<Enter>", on_enter)
-                widget.bind("<Leave>", on_leave)
-            
-            create_tooltip(btn, question)
+        for i, q in enumerate(quick_questions):
+            btn = tk.Button(question_btn_frame, text=f"Q{i+1}", command=lambda quest=q: quick_question(quest), 
+                          bg="#2196F3", fg="black", font=('Arial', 8))
+            btn.pack(side=tk.LEFT, padx=1)
         
         # Buttons frame
         button_frame = tk.Frame(result_window)
@@ -338,35 +187,13 @@ Please answer this specific question about the SQL code. Be concise and focused 
         
         tk.Button(button_frame, text="❌ Close", command=result_window.destroy, bg="#F44336", fg="black").pack(side=tk.RIGHT, padx=5)
         
-        # Bind keyboard shortcuts
+        # Bind Enter key to ask question
         def on_enter(event):
             if event.state & 0x4:  # Ctrl+Enter
                 ask_question()
                 return "break"
         
-        def on_zoom_in(event):
-            zoom_all_in()
-            return "break"
-        
-        def on_zoom_out(event):
-            zoom_all_out()
-            return "break"
-        
-        def on_reset_zoom(event):
-            reset_zoom()
-            return "break"
-        
-        # Keyboard shortcuts for the understanding window
-        result_window.bind("<Control-Return>", on_enter)
-        result_window.bind("<Control-plus>", on_zoom_in)
-        result_window.bind("<Control-equal>", on_zoom_in)  # Handle + without shift
-        result_window.bind("<Control-minus>", on_zoom_out)
-        result_window.bind("<Control-0>", on_reset_zoom)
-        
         question_entry.bind("<Control-Return>", on_enter)
-        
-        # Focus on question entry for immediate typing
-        question_entry.focus_set()
         
         return result_window
     
