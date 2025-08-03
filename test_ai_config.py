@@ -15,8 +15,8 @@ def test_ai_config():
     print("✅ AI features initialized")
     print("✅ Ready to test AI configuration dialog")
     print("\nTo test:")
-    print("1. Click '🤖 Enable AI Features' button")
-    print("2. Click '⚙️ AI Config' button")
+    print("1. Click 'Enable AI Features' button")
+    print("2. Click 'AI Config' button")
     print("3. Verify all fields and buttons are visible")
     print("4. Test the Save and Cancel buttons")
     
