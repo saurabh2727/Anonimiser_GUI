@@ -177,10 +177,33 @@ class ModernChatWidget(Frame):
             
             text_widget.config(state=tk.DISABLED)
             
-            # Auto-resize height based on content
+            # Auto-resize height based on content - improved calculation
             text_widget.update_idletasks()
-            lines = int(text_widget.index('end-1c').split('.')[0])
-            text_widget.config(height=min(lines, 20))
+            
+            # Get the actual content and calculate proper height
+            content = text_widget.get("1.0", "end-1c")
+            if content.strip():
+                # Count actual newlines in content
+                base_lines = content.count('\n') + 1
+                
+                # Estimate wrapped lines based on content length and width
+                try:
+                    text_widget.update()
+                    widget_width = text_widget.winfo_width()
+                    if widget_width > 0:
+                        # Conservative estimate: ~80 characters per line
+                        chars_per_line = max(60, widget_width // 8)
+                        total_chars = len(content)
+                        estimated_lines = max(base_lines, (total_chars // chars_per_line) + 1)
+                        lines = min(estimated_lines, 60)  # Cap at 60 lines
+                    else:
+                        lines = min(base_lines * 2, 60)  # Double line count as fallback
+                except:
+                    lines = min(base_lines * 2, 60)
+            else:
+                lines = 3
+                
+            text_widget.config(height=lines)
         
         # Store message for later reference
         self.messages.append({
