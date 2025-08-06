@@ -1,217 +1,232 @@
-# 🎭 Enhanced SQL Masker Tool v2.0 - Modular
+# 🚀 Enhanced SQL Masker with Dual LLM & Modern Interface
 
-A powerful GUI application for masking sensitive information in SQL queries with **AI-enhanced semantic mapping** and **comprehensive zoom functionality**.
+A professional SQL data masking tool with AI-powered features, modern Claude-like interface, and dual LLM smart routing.
 
-## 🚀 Key Features
+![Version](https://img.shields.io/badge/version-2.0-blue)
+![Python](https://img.shields.io/badge/python-3.8+-green)
+![License](https://img.shields.io/badge/license-MIT-blue)
 
-### **Core Masking Capabilities**
-- **Intelligent SQL Analysis**: Automatically detects tables, columns, strings, functions, and aliases
-- **Smart Masking**: Replace sensitive names with anonymized equivalents
-- **Reversible Operations**: Unmask SQL back to original form using saved mappings
-- **Mapping Management**: Save/load mapping configurations for consistency
+## ✨ Key Features
 
-### **🧠 AI-Enhanced Masking (NEW!)**
-- **Semantic Preservation**: AI generates meaningful masked names instead of random strings
-- **Domain Awareness**: Automatically detects business context (telecom, finance, retail, etc.)
-- **Consistent Relationships**: Maintains logical connections between related entities
-- **Toggle Mode**: Switch between traditional random and AI-enhanced semantic masking
+### 🛡️ Advanced SQL Masking
+- **Smart Data Masking**: Automatically mask sensitive data in SQL queries
+- **Realistic Name Generation**: Replace masked values with realistic-looking names
+- **Syntax Highlighting**: Real-time SQL syntax highlighting with masked value detection
+- **Import/Export Mappings**: Save and reuse masking configurations
+- **Diff Viewer**: Compare original vs masked SQL with highlighting
 
-### **🔍 Advanced Zoom & Readability**
-- **Global Zoom Controls**: Zoom all sections simultaneously
-- **Individual Section Zoom**: Fine-tune each text area independently  
-- **Keyboard Shortcuts**: `Ctrl+Plus/Minus` for quick zoom, `Ctrl+0` to reset
-- **Expandable Interface**: Drag-to-resize sections for optimal viewing
+### 🤖 AI-Powered Analysis
+- **Dual LLM Smart Routing**: 
+  - 📝 **Text/Code**: `deepseek-coder-v2:latest` for SQL analysis and optimization
+  - 🖼️ **Images**: `llava:latest` for visual analysis and diagrams
+- **Code Understanding**: AI explains SQL structure, logic, and purpose
+- **Code Modification**: Natural language instructions to modify SQL
+- **Multi-Provider Support**: OpenAI, Anthropic, or local models via Ollama
 
-### **🤖 AI Assistant Features**
-- **Code Understanding**: Get detailed SQL analysis and explanations
-- **Natural Language Modifications**: Describe changes in plain English
-- **Interactive Conversations**: Follow-up questions about your SQL
-- **Multiple AI Providers**: OpenAI, Anthropic, Local LLM (Ollama), Custom APIs
+### 🎨 Modern Interface
+- **Claude-like Chat Interface**: Professional message bubbles and layout
+- **Dark/Light Theme Toggle**: 🌙/☀️ Switch between themes with persistence
+- **Zoom Controls**: 🔍+/🔍- Scale entire interface (50%-300%)
+- **Image Support**: Upload or paste images directly in chat
+- **Dynamic Sizing**: Chat bubbles auto-resize to fit content (up to 60 lines)
 
-## 📋 Requirements
+## 🚀 Quick Start
 
-### Python Dependencies
-```bash
-pip install tkinter sqlparse requests pyperclip
-```
+### Installation
 
-### Optional AI Requirements
-- **Local LLM**: Install [Ollama](https://ollama.ai) with `deepseek-coder-v2:latest` model
-- **Cloud AI**: API keys for OpenAI or Anthropic (optional)
-
-## 🎯 Quick Start
-
-1. **Launch the Application**:
+1. **Clone the repository**:
    ```bash
-   python sql_mask_gui_modular.py
+   git clone <repository-url>
+   cd Anonimiser_GUI
    ```
 
-2. **Basic Masking Workflow**:
-   - Enter or load SQL in the "Original SQL" section
-   - Click "Mask SQL" (auto-analyzes if no mappings exist)
-   - View anonymized result in "Masked SQL" section
-   - Save mappings for future use
+2. **Install dependencies**:
+   ```bash
+   pip install -r requirements.txt
+   ```
 
-3. **AI-Enhanced Masking**:
-   - Click "Enable AI Features"
-   - Configure AI provider in "AI Config"
-   - Toggle "AI Masking: ON" for semantic masking
-   - Enjoy meaningful masked names instead of random strings
+3. **For local LLM support (optional)**:
+   ```bash
+   # Install Ollama
+   curl -fsSL https://ollama.ai/install.sh | sh
+   
+   # Pull required models
+   ollama pull deepseek-coder-v2:latest
+   ollama pull llava:latest
+   ```
 
-## 🎨 Interface Overview
+### Running the Application
 
-### **Main Sections**
-- **📝 SQL Editor**: Original and masked SQL with individual zoom controls
-- **🗺️ Mappings**: View and manage entity mappings
-- **❓ Help**: Complete documentation and shortcuts
+```bash
+python run_sql_masker.py
+```
 
-### **Control Panel**
-- **File Operations**: Load/Save files and mappings
-- **Masking Operations**: Analyze, Edit, Mask, Unmask SQL
-- **AI Features**: Enable/Configure AI, Understanding, Modifications
+## 🎯 Usage Guide
 
-## 🔧 AI Configuration
+### Basic SQL Masking
 
-### **Supported Providers**
-1. **Local LLM (Recommended for Privacy)**:
+1. **Enter SQL**: Paste your SQL query in the input area
+2. **Prepare Masking**: Click "Prepare Masking" to analyze
+3. **Configure Mapping**: Review and edit detected tables/columns
+4. **Mask SQL**: Generate masked version
+5. **Export/Import**: Save configurations for reuse
+
+### AI Features Setup
+
+1. **Enable AI**: Click "🤖 Enable AI Features"
+2. **Configure**: Click "⚙️ AI Config"
+3. **Choose Setup**:
+   
+   **Option A: Local Models (Recommended)**
+   - API Provider: `local_llm`
+   - ✅ Enable Dual LLM (Text + Vision)
+   - Text Model: `deepseek-coder-v2:latest`
+   - Vision Model: `llava:latest`
    - Base URL: `http://localhost:11434/v1/chat/completions`
-   - Model: `deepseek-coder-v2:latest`
-   - API Key: Any value (or leave empty)
+   
+   **Option B: Cloud APIs**
+   - API Provider: `openai` or `anthropic`
+   - Enter your API key
+   - Choose model (e.g., `gpt-4`, `claude-3-sonnet`)
 
-2. **OpenAI**:
-   - Models: `gpt-3.5-turbo`, `gpt-4`, etc.
-   - Requires valid API key
+4. **Test Connection**: Verify setup works
+5. **Save Configuration**
 
-3. **Anthropic**:
-   - Models: `claude-3-sonnet-20240229`, etc.
-   - Requires valid API key
+### Using AI Features
 
-4. **Custom API**:
-   - Configure your own endpoint and model
+- **🧠 Understand Code**: AI analyzes SQL structure and provides explanations
+- **✏️ Modify Code**: Give natural language instructions to modify SQL
+- **🖼️ Image Analysis**: Upload database diagrams or screenshots for analysis
+- **💬 Interactive Chat**: Ask follow-up questions in modern chat interface
 
-## 📊 Masking Comparison
+### Interface Features
 
-### **Traditional Random Masking**
-```sql
--- Before
-SELECT customer_id, billing_date FROM customer_accounts;
+- **Theme Toggle**: Click 🌙/☀️ in chat header to switch themes
+- **Zoom Controls**: Use 🔍+/🔍- to scale interface
+- **Message Navigation**: 
+  - **Enter**: Send message
+  - **Shift+Enter**: New line in message
+  - **Ctrl+Shift+V**: Paste images from clipboard
 
--- After
-SELECT col_001, fld_002 FROM table_003;
-```
-
-### **AI-Enhanced Semantic Masking**
-```sql
--- Before  
-SELECT customer_id, billing_date FROM customer_accounts;
-
--- After
-SELECT client_ref, invoice_timestamp FROM account_data;
-```
-
-## ⌨️ Keyboard Shortcuts
-
-### **Main Application**
-- `Ctrl+O`: Load file
-- `Ctrl+S`: Save mappings
-- `F5`: Analyze SQL
-- `F6`: Mask SQL
-- `F7`: Unmask SQL
-
-### **Zoom Controls**
-- `Ctrl+Plus`: Zoom in
-- `Ctrl+Minus`: Zoom out
-- `Ctrl+0`: Reset zoom
-
-### **AI Understanding Window**
-- `Ctrl+Enter`: Submit question
-- `Ctrl+Plus/Minus`: Zoom all sections
-- `Ctrl+0`: Reset all zoom levels
-
-## 🎯 Use Cases
-
-### **Development & Testing**
-- Anonymize SQL for external code reviews
-- Create realistic test data scenarios
-- Share queries without exposing sensitive schemas
-
-### **Documentation & Training**
-- Generate training materials with masked examples
-- Create documentation with anonymized SQL
-- Maintain readability while ensuring privacy
-
-### **Compliance & Security**
-- Meet data privacy requirements
-- Secure sensitive database information
-- Audit-friendly anonymization process
-
-## 🔍 Advanced Features
-
-### **Smart Domain Detection**
-- **Telecom**: Recognizes network, call, mobile patterns
-- **Finance**: Detects account, payment, transaction terms
-- **Retail**: Identifies product, order, customer entities
-- **HR**: Spots employee, department, payroll references
-
-### **Conversation Interface**
-- **Quick Questions**: Pre-built queries about SQL structure
-- **Custom Questions**: Ask anything about your SQL code
-- **Follow-up Support**: Continue conversations for deeper analysis
-
-### **Enhanced Readability**
-- **Expandable Sections**: Resize any part of the interface
-- **Multiple Zoom Levels**: Perfect text size for any screen
-- **Professional Layout**: Color-coded controls and clear organization
-
-## 🛠️ Technical Details
-
-### **Architecture**
-- **Modular Design**: Separate components for masking, AI, and GUI
-- **Extensible**: Easy to add new AI providers or masking strategies
-- **Error Handling**: Graceful fallbacks and user-friendly error messages
-
-### **Performance**
-- **Local Processing**: Core masking works without internet
-- **Optimized AI Calls**: Intelligent prompt management for large queries
-- **Responsive UI**: Non-blocking operations with progress indicators
-
-## 📝 File Structure
+## 📁 Project Structure
 
 ```
 Anonimiser_GUI/
-├── sql_mask_gui_modular.py      # Main application
-├── sql_masker.py                # Core masking logic
-├── ai_config.py                 # AI configuration
-├── ai_interface.py              # AI interaction windows
-├── syntax_highlighter.py       # SQL syntax highlighting
-├── test_ai_masking.py          # Masking comparison demo
-├── test_understanding_zoom.py   # Understanding window demo
-└── *.md                        # Documentation files
+├── 🚀 run_sql_masker.py          # Main application launcher
+├── 🖥️ sql_mask_gui.py            # Core GUI and masking logic
+├── 🤖 ai_config.py               # AI configuration and API handling
+├── 🎨 ai_interface.py            # AI interface integration
+├── 💬 modern_ai_interface.py     # Modern chat interface
+├── 🎨 theme_manager.py           # Theme and zoom management
+├── 📋 requirements.txt           # Python dependencies
+├── ⚙️ theme_config.json          # Theme settings (auto-generated)
+└── 📚 README.md                  # This file
 ```
 
-## 🎉 What's New in v2.0
+## 🔧 Configuration
 
-### **🧠 AI-Enhanced Masking**
-- Semantic preservation instead of random strings
-- Business domain awareness
-- Consistent relationship mapping
+### Theme & Zoom Settings
+Settings are automatically saved to `theme_config.json`:
+```json
+{
+  "theme": "dark",
+  "zoom_level": 1.2
+}
+```
 
-### **🔍 Comprehensive Zoom**
-- Global and individual section zoom controls
-- Keyboard shortcuts for all zoom operations
-- Perfect accessibility for any screen size
+### AI Configuration
+AI settings are managed through the GUI and stored securely.
 
-### **🎨 Improved Interface**
-- 20% larger default window size
-- Expandable and resizable sections
-- Better button layouts and spacing
-- Meaningful quick question buttons
+## 🎮 Keyboard Shortcuts
 
-### **⚡ Enhanced Workflow**
-- Auto-analysis when masking (no manual "Analyze" step)
-- Improved error handling and user feedback
-- Professional tooltips and visual cues
+| Shortcut | Action |
+|----------|--------|
+| `Enter` | Send message in chat |
+| `Shift+Enter` | New line in message |
+| `Ctrl+Shift+V` | Paste image from clipboard |
+| `Ctrl+C` | Copy text |
+
+## 🚨 Requirements
+
+### Python Dependencies
+- **Python 3.8+**
+- **tkinter** (usually included with Python)
+- **requests** - HTTP requests for AI APIs
+- **pyperclip** - Clipboard operations
+- **sqlparse** - SQL parsing
+- **sql-metadata** - SQL metadata extraction
+- **Pillow** - Image processing
+
+### Optional Dependencies
+- **Ollama** - For local LLM support
+- **deepseek-coder-v2** - Local coding model
+- **llava** - Local vision model
+
+## 🌟 Advanced Features
+
+### Dual LLM Smart Routing
+The application automatically selects the best model for each task:
+- **Code questions** → deepseek-coder-v2 (optimized for programming)
+- **Image questions** → llava (optimized for vision)
+- **Mixed queries** → Intelligent routing based on content
+
+### Modern Interface Design
+- **Professional Layout**: Claude-inspired design with proper spacing
+- **Dynamic Bubbles**: Messages auto-resize to fit content (up to 60 lines)
+- **Theme Persistence**: Remember user preferences
+- **Responsive Design**: Works well at different zoom levels
+
+## 🐛 Troubleshooting
+
+### Common Issues
+
+**AI Features Not Working**
+- Ensure `requests` is installed: `pip install requests`
+- Check API key is correct
+- For local LLM, verify Ollama is running: `ollama list`
+
+**Image Upload Issues**
+- Ensure `Pillow` is installed: `pip install Pillow`
+- Check image format is supported (PNG, JPG, etc.)
+- For clipboard paste, use Ctrl+Shift+V
+
+**Interface Issues**
+- Theme not switching: Check `theme_config.json` permissions
+- Zoom not working: Restart application
+- Window not centering: Update display drivers
+
+### Getting Help
+1. Check this README
+2. Verify all dependencies are installed
+3. Test with simple SQL queries first
+4. Check console output for error messages
+
+## 📈 Version History
+
+- **v2.0**: Modern interface with dual LLM support and enhanced chat bubbles
+- **v1.x**: Basic SQL masking functionality
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Test thoroughly
+5. Submit a pull request
+
+## 📄 License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## 🙏 Acknowledgments
+
+- **Ollama** for local LLM support
+- **OpenAI & Anthropic** for cloud AI services
+- **Claude** for interface design inspiration
+- **SQL parsing libraries** for robust SQL analysis
 
 ---
 
-**🎭 Transform your SQL masking workflow with intelligent AI assistance and professional-grade zoom functionality!**
+**Ready to mask your SQL data with AI-powered intelligence?** 🚀
+
+Run `python run_sql_masker.py` to get started!

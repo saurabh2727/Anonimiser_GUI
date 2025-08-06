@@ -1,4 +1,4 @@
-# 🚀 Dual LLM System - Best of Both Worlds!
+# 🚀 Dual LLM System - Smart AI Routing
 
 ## Overview
 The Dual LLM system automatically routes your queries to the most appropriate AI model:
@@ -32,17 +32,15 @@ ollama pull llava:latest
 ```
 
 ### **Step 2: Enable Dual LLM Mode**
-1. Run your application: `python modern_gui_demo.py`
-2. Click **"⚙️ Configure AI Settings"**
-3. ✅ **Check "Enable Dual LLM (Text + Vision)"**
-4. Set **Text/Code Model**: `deepseek-coder-v2:latest`
-5. Set **Vision Model**: `llava:latest`
-6. Click **"Save"**
-
-### **Step 3: Test the System**
-```bash
-python test_dual_llm.py
-```
+1. Run your application: `python run_sql_masker.py`
+2. Click **"🤖 Enable AI Features"**
+3. Click **"⚙️ AI Config"**
+4. Set **API Provider**: `local_llm`
+5. ✅ **Check "Enable Dual LLM (Text + Vision)"**
+6. Set **Text/Code Model**: `deepseek-coder-v2:latest`
+7. Set **Vision Model**: `llava:latest`
+8. Set **Base URL**: `http://localhost:11434/v1/chat/completions`
+9. Click **"Save"**
 
 ## 🎮 How It Works
 
@@ -63,21 +61,21 @@ else:
 #### 📝 **Text Query** (Uses deepseek-coder-v2)
 ```
 User: "Explain this SQL query and optimize it"
-System: 🖼️ Using text model: deepseek-coder-v2:latest
+Console: 📝 Using text model: deepseek-coder-v2:latest
 Response: [Detailed SQL analysis and optimization suggestions]
 ```
 
 #### 🖼️ **Image Query** (Uses llava)
 ```
-User: Uploads screenshot + "What's in this database diagram?"
-System: 🖼️ Using vision model: llava:latest  
+User: Uploads database diagram + "What's in this database diagram?"
+Console: 🖼️ Using vision model: llava:latest  
 Response: [Detailed analysis of the database schema image]
 ```
 
 #### 🤝 **Combined Query** (Uses llava for image context)
 ```
 User: Uploads ERD + "Generate SQL for this database design"
-System: 🖼️ Using vision model: llava:latest
+Console: 🖼️ Using vision model: llava:latest
 Response: [Analyzes image and generates appropriate SQL]
 ```
 
@@ -108,26 +106,6 @@ You can use different models based on your needs:
 - `llava:13b`
 - `llava:7b` (Faster, less accurate)
 
-## 🧪 Testing Your Setup
-
-### **Quick Test Commands**
-```bash
-# Test dual LLM configuration
-python test_dual_llm.py
-
-# Test image processing specifically  
-python quick_image_test.py
-
-# Test modern interface
-python modern_gui_demo.py
-```
-
-### **Manual Testing Steps**
-1. **Open Modern Chat**: Click "🚀 Open Modern Chat Interface"
-2. **Text Test**: Ask "Explain this SQL query" (should use deepseek)
-3. **Image Test**: Upload image + ask "What's this?" (should use llava)
-4. **Check Console**: Look for model selection messages
-
 ## 🎯 Visual Indicators
 
 ### **In Chat Interface**
@@ -155,7 +133,7 @@ ollama pull llava:latest
 #### **❌ Images Not Working**
 1. Check if vision model is running: `ollama list`
 2. Verify llava is installed
-3. Test with: `python quick_image_test.py`
+3. Ensure Pillow is installed: `pip install Pillow`
 
 #### **❌ Dual LLM Not Active**
 1. Open AI Configuration
@@ -170,7 +148,7 @@ ollama list
 
 # Test individual models
 ollama run deepseek-coder-v2:latest "Hello"
-ollama run llava:latest "Describe this: [image]"
+ollama run llava:latest "Describe this image"
 
 # Check app configuration
 python -c "from ai_config import AIConfig; print(AIConfig().config)"
@@ -231,8 +209,8 @@ The dual LLM system also works with cloud providers:
 ## 🎯 Quick Start Summary
 
 1. **Install models**: `ollama pull deepseek-coder-v2:latest && ollama pull llava:latest`
-2. **Enable dual LLM**: Open config → Check "Enable Dual LLM"
-3. **Test it**: `python test_dual_llm.py`
+2. **Run app**: `python run_sql_masker.py`
+3. **Enable dual LLM**: AI Config → Check "Enable Dual LLM"
 4. **Use it**: Text questions get deepseek, images get llava automatically!
 
 **You now have the best of both worlds - specialized AI models working together seamlessly!** 🚀✨
