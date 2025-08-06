@@ -7,10 +7,16 @@ Handles AI provider configuration and API calls
 import tkinter as tk
 from tkinter import ttk, messagebox, Toplevel
 import threading
+import base64
+import io
 try:
     import requests
 except ImportError:
     requests = None
+try:
+    from PIL import Image
+except ImportError:
+    Image = None
 
 
 class AIConfig:
@@ -21,7 +27,12 @@ class AIConfig:
             'api_key': 'local',
             'api_provider': 'local_llm',  # openai, anthropic, local_llm, custom
             'base_url': 'http://localhost:11434/v1/chat/completions',
-            'model': 'deepseek-coder-v2:latest'
+            'model': 'deepseek-coder-v2:latest',
+            # Dual LLM support
+            'dual_llm_enabled': True,
+            'text_model': 'deepseek-coder-v2:latest',  # For code/text
+            'vision_model': 'llava:latest',  # For images
+            'smart_routing': True  # Automatically choose the right model
         }
     
     def show_config_dialog(self, parent):
@@ -69,30 +80,51 @@ class AIConfig:
         show_key_btn = tk.Button(form_frame, text="👁️ Show", command=toggle_api_key_visibility)
         show_key_btn.grid(row=1, column=2, padx=(5, 0), pady=5)
         
-        # Model
-        tk.Label(form_frame, text="Model:", font=('Arial', 12, 'bold')).grid(row=2, column=0, sticky="w", pady=5)
+        # Dual LLM checkbox
+        dual_llm_var = tk.BooleanVar(value=self.config.get('dual_llm_enabled', False))
+        dual_llm_check = tk.Checkbutton(form_frame, text="Enable Dual LLM (Text + Vision)", 
+                                       variable=dual_llm_var, font=('Arial', 11, 'bold'))
+        dual_llm_check.grid(row=2, column=0, columnspan=3, sticky="w", pady=5)
+        
+        # Text Model
+        tk.Label(form_frame, text="Text/Code Model:", font=('Arial', 12, 'bold')).grid(row=3, column=0, sticky="w", pady=5)
+        text_model_var = tk.StringVar(value=self.config.get('text_model', self.config['model']))
+        text_model_entry = tk.Entry(form_frame, textvariable=text_model_var, width=40, font=('Arial', 11))
+        text_model_entry.grid(row=3, column=1, sticky="ew", pady=5, padx=(10, 0))
+        
+        # Vision Model
+        tk.Label(form_frame, text="Vision Model:", font=('Arial', 12, 'bold')).grid(row=4, column=0, sticky="w", pady=5)
+        vision_model_var = tk.StringVar(value=self.config.get('vision_model', 'llava:latest'))
+        vision_model_entry = tk.Entry(form_frame, textvariable=vision_model_var, width=40, font=('Arial', 11))
+        vision_model_entry.grid(row=4, column=1, sticky="ew", pady=5, padx=(10, 0))
+        
+        # Legacy single model (for compatibility)
+        tk.Label(form_frame, text="Single Model (legacy):", font=('Arial', 12, 'bold')).grid(row=5, column=0, sticky="w", pady=5)
         model_var = tk.StringVar(value=self.config['model'])
         model_entry = tk.Entry(form_frame, textvariable=model_var, width=40, font=('Arial', 11))
-        model_entry.grid(row=2, column=1, sticky="ew", pady=5, padx=(10, 0))
+        model_entry.grid(row=5, column=1, sticky="ew", pady=5, padx=(10, 0))
         
         # Base URL (for custom providers)
-        tk.Label(form_frame, text="Base URL (optional):", font=('Arial', 12, 'bold')).grid(row=3, column=0, sticky="w", pady=5)
+        tk.Label(form_frame, text="Base URL (optional):", font=('Arial', 12, 'bold')).grid(row=6, column=0, sticky="w", pady=5)
         base_url_var = tk.StringVar(value=self.config['base_url'])
         base_url_entry = tk.Entry(form_frame, textvariable=base_url_var, width=40, font=('Arial', 11))
-        base_url_entry.grid(row=3, column=1, sticky="ew", pady=5, padx=(10, 0))
+        base_url_entry.grid(row=6, column=1, sticky="ew", pady=5, padx=(10, 0))
         
         # Help text
         help_frame = tk.Frame(config_window, bg="#FFF3E0")
         help_frame.pack(fill="x", padx=10, pady=5)
         
         help_text = """💡 Help:
-• OpenAI: Use models like 'gpt-3.5-turbo', 'gpt-4'
-• Anthropic: Use models like 'claude-3-sonnet-20240229'
+• 🚀 DUAL LLM MODE: Use different models for text and images automatically!
+  - Text Model: deepseek-coder-v2:latest (best for code/SQL)
+  - Vision Model: llava:latest (best for images)
+• OpenAI: Use models like 'gpt-3.5-turbo', 'gpt-4' (gpt-4 supports images)
+• Anthropic: Use models like 'claude-3-sonnet-20240229' (supports images)
 • Local LLM: Use local models via Ollama (Base URL: http://localhost:11434/v1/chat/completions)
 • Custom: Provide your own base URL and model name
 • API keys are stored locally and never shared
 • For Local LLM, API key can be any value or leave empty
-• Available models: deepseek-coder-v2:latest, mistral:latest, llava:latest"""
+• Recommended: Enable Dual LLM for best of both worlds!"""
         
         tk.Label(help_frame, text=help_text, bg="#FFF3E0", justify="left", font=('Arial', 11)).pack(padx=10, pady=10)
         
@@ -152,7 +184,12 @@ class AIConfig:
                 'api_key': api_key,
                 'api_provider': provider,
                 'base_url': base_url,
-                'model': model
+                'model': model,
+                # Dual LLM settings
+                'dual_llm_enabled': dual_llm_var.get(),
+                'text_model': text_model_var.get().strip(),
+                'vision_model': vision_model_var.get().strip(),
+                'smart_routing': True
             }
             
             messagebox.showinfo("Configuration Saved", "AI configuration saved successfully!")
@@ -217,14 +254,52 @@ class AIConfig:
         except Exception as e:
             return f"❌ Connection failed: {str(e)}"
     
-    def call_ai_api(self, prompt, config=None):
-        """Make API call to AI service"""
+    def _call_dual_llm_api(self, prompt, config, image_data=None):
+        """Call appropriate LLM based on content type (dual LLM mode)"""
+        try:
+            # Determine which model to use
+            if image_data:
+                # Use vision model for image analysis
+                model_to_use = config.get('vision_model', 'llava:latest')
+                print(f"🖼️ Using vision model: {model_to_use}")
+            else:
+                # Use text model for code/text analysis
+                model_to_use = config.get('text_model', 'deepseek-coder-v2:latest')
+                print(f"📝 Using text model: {model_to_use}")
+            
+            # Create temporary config with the selected model
+            temp_config = config.copy()
+            temp_config['model'] = model_to_use
+            
+            # Call the regular API with the appropriate model
+            return self._call_single_llm_api(prompt, temp_config, image_data)
+            
+        except Exception as e:
+            print(f"❌ Dual LLM error: {e}")
+            # Fallback to regular single model
+            return self._call_single_llm_api(prompt, config, image_data)
+    
+    def _call_single_llm_api(self, prompt, config, image_data=None):
+        """Call a single LLM (used by both dual and single mode)"""
+        return self._make_api_call(prompt, config, image_data)
+    
+    def call_ai_api(self, prompt, config=None, image_data=None):
+        """Make API call to AI service with optional image support and smart routing"""
         if requests is None:
             raise Exception("The 'requests' module is required for AI features.")
         
         if config is None:
             config = self.config
         
+        # Smart routing for dual LLM mode
+        if config.get('dual_llm_enabled', False) and config['api_provider'] == 'local_llm':
+            return self._call_dual_llm_api(prompt, config, image_data)
+        
+        # Regular single model mode
+        return self._make_api_call(prompt, config, image_data)
+    
+    def _make_api_call(self, prompt, config, image_data=None):
+        """Make the actual API call to the AI service"""
         try:
             if config['api_provider'] == 'openai':
                 url = config['base_url'] or 'https://api.openai.com/v1/chat/completions'
@@ -232,11 +307,24 @@ class AIConfig:
                     'Authorization': f'Bearer {config["api_key"]}',
                     'Content-Type': 'application/json'
                 }
-                data = {
-                    'model': config['model'],
-                    'messages': [{'role': 'user', 'content': prompt}],
-                    'max_tokens': 2000
-                }
+                
+                # Handle image data for vision models
+                if image_data and ('gpt-4' in config['model'] or 'vision' in config['model'].lower()):
+                    message_content = [
+                        {"type": "text", "text": prompt},
+                        {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{image_data}"}}
+                    ]
+                    data = {
+                        'model': config['model'],
+                        'messages': [{'role': 'user', 'content': message_content}],
+                        'max_tokens': 2000
+                    }
+                else:
+                    data = {
+                        'model': config['model'],
+                        'messages': [{'role': 'user', 'content': prompt}],
+                        'max_tokens': 2000
+                    }
                 
                 response = requests.post(url, headers=headers, json=data, timeout=30)
                 response.raise_for_status()
@@ -249,11 +337,24 @@ class AIConfig:
                     'Content-Type': 'application/json',
                     'anthropic-version': '2023-06-01'
                 }
-                data = {
-                    'model': config['model'],
-                    'messages': [{'role': 'user', 'content': prompt}],
-                    'max_tokens': 2000
-                }
+                
+                # Handle image data for Claude vision models
+                if image_data:
+                    message_content = [
+                        {"type": "text", "text": prompt},
+                        {"type": "image", "source": {"type": "base64", "media_type": "image/png", "data": image_data}}
+                    ]
+                    data = {
+                        'model': config['model'],
+                        'messages': [{'role': 'user', 'content': message_content}],
+                        'max_tokens': 2000
+                    }
+                else:
+                    data = {
+                        'model': config['model'],
+                        'messages': [{'role': 'user', 'content': prompt}],
+                        'max_tokens': 2000
+                    }
                 
                 response = requests.post(url, headers=headers, json=data, timeout=30)
                 response.raise_for_status()
@@ -271,13 +372,29 @@ class AIConfig:
                 if len(prompt) > max_prompt_length:
                     prompt = prompt[:max_prompt_length] + "\n\n[Note: Query was truncated - showing first part only]"
                 
-                data = {
-                    'model': config['model'],
-                    'messages': [{'role': 'user', 'content': prompt}],
-                    'max_tokens': 1000,  # Reduced for better performance
-                    'stream': False,
-                    'temperature': 0.7
-                }
+                # Handle image data for llava model
+                if image_data and 'llava' in config['model'].lower():
+                    # For llava models, include image in the message
+                    message_content = [
+                        {"type": "text", "text": prompt},
+                        {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{image_data}"}}
+                    ]
+                    data = {
+                        'model': config['model'],
+                        'messages': [{'role': 'user', 'content': message_content}],
+                        'max_tokens': 1000,
+                        'stream': False,
+                        'temperature': 0.7
+                    }
+                else:
+                    # Regular text-only message
+                    data = {
+                        'model': config['model'],
+                        'messages': [{'role': 'user', 'content': prompt}],
+                        'max_tokens': 1000,  # Reduced for better performance
+                        'stream': False,
+                        'temperature': 0.7
+                    }
                 
                 response = requests.post(url, headers=headers, json=data, timeout=120)
                 response.raise_for_status()
@@ -320,6 +437,75 @@ class AIConfig:
         except Exception as e:
             print(f"AI API call failed: {e}")
             return None
+    
+    def process_image_for_ai(self, image_path):
+        """Process image for AI consumption"""
+        if Image is None:
+            raise Exception("PIL (Pillow) is required for image processing. Install with: pip install Pillow")
+        
+        try:
+            # Open and process the image
+            with Image.open(image_path) as img:
+                # Convert to RGB if necessary
+                if img.mode in ('RGBA', 'LA', 'P'):
+                    img = img.convert('RGB')
+                
+                # Resize if too large (keep aspect ratio)
+                max_size = (1024, 1024)
+                img.thumbnail(max_size, Image.Resampling.LANCZOS)
+                
+                # Convert to base64
+                buffer = io.BytesIO()
+                img.save(buffer, format='PNG')
+                image_data = base64.b64encode(buffer.getvalue()).decode('utf-8')
+                
+                return image_data
+        except Exception as e:
+            raise Exception(f"Failed to process image: {str(e)}")
+    
+    def process_image_from_clipboard(self):
+        """Process image from clipboard"""
+        if Image is None:
+            raise Exception("PIL (Pillow) is required for image processing. Install with: pip install Pillow")
+        
+        try:
+            import tkinter as tk
+            root = tk.Tk()
+            root.withdraw()
+            
+            # Try to get image from clipboard
+            try:
+                clipboard_data = root.clipboard_get()
+                root.destroy()
+                return None  # Only text in clipboard
+            except tk.TclError:
+                # Check if there's an image in clipboard (platform specific)
+                try:
+                    # On macOS/Linux, try using PIL's ImageGrab
+                    from PIL import ImageGrab
+                    img = ImageGrab.grabclipboard()
+                    if img is not None:
+                        # Convert to RGB if necessary
+                        if img.mode in ('RGBA', 'LA', 'P'):
+                            img = img.convert('RGB')
+                        
+                        # Resize if too large
+                        max_size = (1024, 1024)
+                        img.thumbnail(max_size, Image.Resampling.LANCZOS)
+                        
+                        # Convert to base64
+                        buffer = io.BytesIO()
+                        img.save(buffer, format='PNG')
+                        image_data = base64.b64encode(buffer.getvalue()).decode('utf-8')
+                        root.destroy()
+                        return image_data
+                except ImportError:
+                    pass
+                
+                root.destroy()
+                return None
+        except Exception as e:
+            raise Exception(f"Failed to get image from clipboard: {str(e)}")
     
     def is_configured(self):
         """Check if AI is properly configured"""

@@ -5,8 +5,11 @@ Handles AI interaction windows and conversational features
 """
 
 import tkinter as tk
-from tkinter import messagebox, Toplevel, scrolledtext
+from tkinter import messagebox, Toplevel, scrolledtext, filedialog
 import threading
+import os
+from theme_manager import theme_manager
+from modern_ai_interface import ModernAIInterface
 try:
     import pyperclip
 except ImportError:
@@ -19,9 +22,14 @@ class AIInterface:
     def __init__(self, ai_config, sql_getter_callback):
         self.ai_config = ai_config
         self.get_sql = sql_getter_callback  # Callback to get SQL from main app
+        self.modern_interface = ModernAIInterface(ai_config, sql_getter_callback)
+    
+    def show_modern_conversation(self, title, content, sql_context=""):
+        """Show modern Claude-like conversation interface"""
+        return self.modern_interface.show_modern_chat(title, content, sql_context)
     
     def show_understand_result(self, title, content, sql_context=""):
-        """Show AI analysis result with conversation capability"""
+        """Show AI analysis result with conversation capability (legacy)"""
         result_window = Toplevel()
         result_window.title(title)
         result_window.geometry("1000x800")
@@ -66,9 +74,79 @@ class AIInterface:
         input_frame.pack(fill="x", padx=5, pady=5)
         
         # Question input
-        tk.Label(input_frame, text="Ask about this SQL:", font=('Arial', 9)).pack(anchor="w")
+        question_label = tk.Label(input_frame, text="Ask about this SQL:", font=('Arial', 9))
+        question_label.pack(anchor="w")
+        
+        # Image status frame
+        image_frame = tk.Frame(input_frame)
+        image_frame.pack(fill="x", pady=2)
+        
+        image_status_label = tk.Label(image_frame, text="", font=('Arial', 8), fg="green")
+        image_status_label.pack(side=tk.LEFT)
+        
+        # Image buttons frame
+        image_btn_frame = tk.Frame(image_frame)
+        image_btn_frame.pack(side=tk.RIGHT)
+        
         question_entry = tk.Text(input_frame, height=3, font=('Arial', 10))
         question_entry.pack(fill="x", pady=2)
+        
+        # Store current image data
+        current_image_data = {'data': None, 'filename': None}
+        
+        # Image handling functions
+        def upload_image():
+            """Upload image from file"""
+            file_path = filedialog.askopenfilename(
+                title="Select Image",
+                filetypes=[
+                    ("Image files", "*.png *.jpg *.jpeg *.gif *.bmp *.tiff"),
+                    ("All files", "*.*")
+                ]
+            )
+            if file_path:
+                try:
+                    image_data = self.ai_config.process_image_for_ai(file_path)
+                    current_image_data['data'] = image_data
+                    current_image_data['filename'] = os.path.basename(file_path)
+                    image_status_label.config(text=f"📷 Image: {current_image_data['filename']}")
+                    question_label.config(text="Ask about this SQL and/or the image:")
+                except Exception as e:
+                    messagebox.showerror("Image Error", f"Failed to process image: {str(e)}")
+        
+        def paste_image():
+            """Paste image from clipboard"""
+            try:
+                image_data = self.ai_config.process_image_from_clipboard()
+                if image_data:
+                    current_image_data['data'] = image_data
+                    current_image_data['filename'] = "clipboard_image.png"
+                    image_status_label.config(text="📷 Image: pasted from clipboard")
+                    question_label.config(text="Ask about this SQL and/or the image:")
+                else:
+                    messagebox.showinfo("No Image", "No image found in clipboard.")
+            except Exception as e:
+                messagebox.showerror("Paste Error", f"Failed to paste image: {str(e)}")
+        
+        def clear_image():
+            """Clear current image"""
+            current_image_data['data'] = None
+            current_image_data['filename'] = None
+            image_status_label.config(text="")
+            question_label.config(text="Ask about this SQL:")
+        
+        # Add image buttons
+        upload_btn = tk.Button(image_btn_frame, text="📁 Upload Image", command=upload_image, 
+                              bg="#2196F3", fg="black", font=('Arial', 8))
+        upload_btn.pack(side=tk.LEFT, padx=2)
+        
+        paste_btn = tk.Button(image_btn_frame, text="📋 Paste Image", command=paste_image,
+                             bg="#FF9800", fg="black", font=('Arial', 8))
+        paste_btn.pack(side=tk.LEFT, padx=2)
+        
+        clear_btn = tk.Button(image_btn_frame, text="❌ Clear", command=clear_image,
+                             bg="#F44336", fg="black", font=('Arial', 8))
+        clear_btn.pack(side=tk.LEFT, padx=2)
         
         # Store conversation history and SQL context
         conversation_history = []
@@ -81,13 +159,17 @@ class AIInterface:
                 messagebox.showwarning("Empty Question", "Please enter a question about the SQL.")
                 return
             
+            # Check if we have an image
+            has_image = current_image_data['data'] is not None
+            image_info = f" (with image: {current_image_data['filename']})" if has_image else ""
+            
             # Add question to conversation
             conversation_text.configure(state='normal')
-            conversation_text.insert(tk.END, f"\n🙋 You: {question}\n")
+            conversation_text.insert(tk.END, f"\n🙋 You: {question}{image_info}\n")
             conversation_text.configure(state='disabled')
             conversation_text.see(tk.END)
             
-            # Clear input
+            # Clear input but keep image for potential follow-up questions
             question_entry.delete("1.0", tk.END)
             
             # Disable ask button during processing
@@ -102,11 +184,17 @@ class AIInterface:
                         for i, (q, a) in enumerate(conversation_history):
                             context_prompt += f"Q{i+1}: {q}\nA{i+1}: {a}\n\n"
                     
-                    prompt = f"""{context_prompt}New Question: {question}
+                    if has_image:
+                        prompt = f"""{context_prompt}New Question: {question}
+
+Please answer this specific question about the SQL code and/or analyze the provided image. Be concise and focused on the question asked."""
+                    else:
+                        prompt = f"""{context_prompt}New Question: {question}
 
 Please answer this specific question about the SQL code. Be concise and focused on the question asked."""
                     
-                    response = self.ai_config.call_ai_api(prompt)
+                    # Pass image data if available
+                    response = self.ai_config.call_ai_api(prompt, image_data=current_image_data['data'] if has_image else None)
                     
                     if response:
                         # Add to conversation history
@@ -187,13 +275,24 @@ Please answer this specific question about the SQL code. Be concise and focused 
         
         tk.Button(button_frame, text="❌ Close", command=result_window.destroy, bg="#F44336", fg="black").pack(side=tk.RIGHT, padx=5)
         
-        # Bind Enter key to ask question
+        # Bind keyboard shortcuts
         def on_enter(event):
             if event.state & 0x4:  # Ctrl+Enter
                 ask_question()
                 return "break"
         
+        def on_paste_image(event):
+            if event.state & 0x4:  # Ctrl+Shift+V
+                paste_image()
+                return "break"
+        
         question_entry.bind("<Control-Return>", on_enter)
+        question_entry.bind("<Control-Shift-V>", on_paste_image)
+        
+        # Add help text for shortcuts
+        help_text = tk.Label(input_frame, text="💡 Ctrl+Enter: Ask question, Ctrl+Shift+V: Paste image", 
+                            font=('Arial', 8), fg="gray")
+        help_text.pack(anchor="w", pady=2)
         
         return result_window
     
@@ -289,6 +388,58 @@ Please answer this specific question about the SQL code. Be concise and focused 
         # Instructions input
         tk.Label(instruction_window, text="Instructions:", font=('Arial', 12, 'bold')).pack(anchor="w", padx=20, pady=(10, 5))
         
+        # Image support for modification instructions
+        image_mod_frame = tk.Frame(instruction_window)
+        image_mod_frame.pack(fill="x", padx=20, pady=2)
+        
+        image_mod_status = tk.Label(image_mod_frame, text="", font=('Arial', 8), fg="green")
+        image_mod_status.pack(side=tk.LEFT)
+        
+        # Store image data for modification
+        mod_image_data = {'data': None, 'filename': None}
+        
+        def upload_mod_image():
+            file_path = filedialog.askopenfilename(
+                title="Select Image",
+                filetypes=[("Image files", "*.png *.jpg *.jpeg *.gif *.bmp *.tiff"), ("All files", "*.*")]
+            )
+            if file_path:
+                try:
+                    image_data = self.ai_config.process_image_for_ai(file_path)
+                    mod_image_data['data'] = image_data
+                    mod_image_data['filename'] = os.path.basename(file_path)
+                    image_mod_status.config(text=f"📷 Image: {mod_image_data['filename']}")
+                except Exception as e:
+                    messagebox.showerror("Image Error", f"Failed to process image: {str(e)}")
+        
+        def paste_mod_image():
+            try:
+                image_data = self.ai_config.process_image_from_clipboard()
+                if image_data:
+                    mod_image_data['data'] = image_data
+                    mod_image_data['filename'] = "clipboard_image.png"
+                    image_mod_status.config(text="📷 Image: pasted from clipboard")
+                else:
+                    messagebox.showinfo("No Image", "No image found in clipboard.")
+            except Exception as e:
+                messagebox.showerror("Paste Error", f"Failed to paste image: {str(e)}")
+        
+        def clear_mod_image():
+            mod_image_data['data'] = None
+            mod_image_data['filename'] = None
+            image_mod_status.config(text="")
+        
+        # Image buttons for modification
+        image_mod_btn_frame = tk.Frame(image_mod_frame)
+        image_mod_btn_frame.pack(side=tk.RIGHT)
+        
+        tk.Button(image_mod_btn_frame, text="📁 Upload", command=upload_mod_image, 
+                 bg="#2196F3", fg="black", font=('Arial', 8)).pack(side=tk.LEFT, padx=1)
+        tk.Button(image_mod_btn_frame, text="📋 Paste", command=paste_mod_image,
+                 bg="#FF9800", fg="black", font=('Arial', 8)).pack(side=tk.LEFT, padx=1)
+        tk.Button(image_mod_btn_frame, text="❌", command=clear_mod_image,
+                 bg="#F44336", fg="black", font=('Arial', 8)).pack(side=tk.LEFT, padx=1)
+        
         # Create frame for text with scrollbar
         text_frame = tk.Frame(instruction_window)
         text_frame.pack(fill="both", expand=True, padx=20, pady=5)
@@ -323,7 +474,7 @@ Please answer this specific question about the SQL code. Be concise and focused 
         instructions_text.bind("<FocusIn>", clear_example)
         
         # Result storage
-        result = {'instructions': None}
+        result = {'instructions': None, 'image_data': None, 'image_filename': None}
         
         # Buttons
         button_frame = tk.Frame(instruction_window)
@@ -335,7 +486,10 @@ Please answer this specific question about the SQL code. Be concise and focused 
                 messagebox.showwarning("No Instructions", "Please enter modification instructions.")
                 return
             
+            # Include image data in result if available
             result['instructions'] = instructions
+            result['image_data'] = mod_image_data['data']
+            result['image_filename'] = mod_image_data['filename']
             instruction_window.destroy()
         
         # Add zoom controls for the text area
@@ -368,7 +522,7 @@ Please answer this specific question about the SQL code. Be concise and focused 
         # Wait for window to close
         instruction_window.wait_window()
         
-        return result['instructions']
+        return result
     
     def choose_data_for_ai(self, title="Choose Data to Send", parent=None):
         """Let user choose which data to send to AI"""

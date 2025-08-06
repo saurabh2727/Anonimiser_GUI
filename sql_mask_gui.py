@@ -17,6 +17,9 @@ try:
 except ImportError:
     requests = None
 import threading
+from ai_config import AIConfig
+from ai_interface import AIInterface
+from theme_manager import theme_manager
 
 class RealisticNameGenerator:
     """Generate realistic fake names for database objects"""
@@ -347,14 +350,9 @@ class EnhancedSQLMaskerGUI:
         # Initialize realistic name generator
         self.name_generator = RealisticNameGenerator()
         
-        # AI Configuration
-        self.ai_enabled = False
-        self.ai_config = {
-            'api_key': '',
-            'api_provider': 'openai',  # openai, anthropic, custom
-            'base_url': '',
-            'model': 'gpt-3.5-turbo'
-        }
+        # Modern AI Configuration with Dual LLM
+        self.ai_config = AIConfig()
+        self.ai_interface = AIInterface(self.ai_config, self.get_current_sql)
 
         # Enhanced SQL keywords including more comprehensive coverage
         self.sql_keywords = set(kw.lower() for kw in KEYWORDS.keys())
@@ -413,25 +411,99 @@ class EnhancedSQLMaskerGUI:
 
         self.copy_buttons = []
         self.highlighters = {}
+        
+        # Add modern theme controls
+        self._create_theme_header()
         self._setup_layout()
+    
+    def _create_theme_header(self):
+        """Create modern header with theme and zoom controls"""
+        header_frame = tk.Frame(self.root, height=50)
+        header_frame.grid(row=0, column=0, columnspan=2, sticky="ew", padx=10, pady=5)
+        header_frame.grid_propagate(False)
+        
+        # Title
+        title_label = tk.Label(header_frame, 
+                              text="🛡️ Enhanced SQL Masker with Dual LLM", 
+                              font=theme_manager.get_font(size=16, weight="bold"))
+        title_label.pack(side="left", pady=15)
+        
+        # Controls frame
+        controls_frame = tk.Frame(header_frame)
+        controls_frame.pack(side="right", pady=10)
+        
+        # Zoom controls
+        zoom_frame = tk.Frame(controls_frame)
+        zoom_frame.pack(side="left", padx=(0, 20))
+        
+        tk.Button(zoom_frame, text="🔍−", 
+                 font=theme_manager.get_font(size=10),
+                 command=self.zoom_out, relief="flat", bd=0, padx=5).pack(side="left", padx=1)
+        
+        self.zoom_label = tk.Button(zoom_frame, 
+                                   text=f"{int(theme_manager.zoom_level * 100)}%",
+                                   font=theme_manager.get_font(size=8),
+                                   command=self.reset_zoom, relief="flat", bd=0, padx=5)
+        self.zoom_label.pack(side="left", padx=1)
+        
+        tk.Button(zoom_frame, text="🔍+", 
+                 font=theme_manager.get_font(size=10),
+                 command=self.zoom_in, relief="flat", bd=0, padx=5).pack(side="left", padx=1)
+        
+        # Theme toggle
+        self.theme_button = tk.Button(controls_frame,
+                                     text="🌙" if theme_manager.current_theme == "light" else "☀️",
+                                     font=theme_manager.get_font(size=14),
+                                     command=self.toggle_theme,
+                                     relief="flat", bd=0, padx=10)
+        self.theme_button.pack(side="right")
+        
+        # Apply theme to header
+        self.apply_theme_to_header()
+    
+    def apply_theme_to_header(self):
+        """Apply current theme to header elements"""
+        pass  # Will be implemented if needed
+    
+    def zoom_in(self):
+        """Zoom in the interface"""
+        theme_manager.zoom_in()
+        self.zoom_label.config(text=f"{int(theme_manager.zoom_level * 100)}%")
+    
+    def zoom_out(self):
+        """Zoom out the interface"""
+        theme_manager.zoom_out()
+        self.zoom_label.config(text=f"{int(theme_manager.zoom_level * 100)}%")
+    
+    def reset_zoom(self):
+        """Reset zoom to default"""
+        theme_manager.reset_zoom()
+        self.zoom_label.config(text=f"{int(theme_manager.zoom_level * 100)}%")
+    
+    def toggle_theme(self):
+        """Toggle between light and dark theme"""
+        new_theme = theme_manager.toggle_theme()
+        self.theme_button.config(text="🌙" if new_theme == "light" else "☀️")
+        # Apply theme to entire interface if needed
 
     def _setup_layout(self):
-        self.root.grid_rowconfigure([1, 3, 5, 7, 9], weight=1)
-        self.root.grid_rowconfigure(11, weight=0)  # AI buttons row
+        # Adjust row configuration for header
+        self.root.grid_rowconfigure([2, 4, 6, 8, 10], weight=1)
+        self.root.grid_rowconfigure(12, weight=0)  # AI buttons row
         self.root.grid_columnconfigure(0, weight=4)
         self.root.grid_columnconfigure(1, weight=1)
 
-        self._create_text_section("Original SQL (Sensitive):", 0, 'input_text')
-        self._create_text_section("Masked SQL (Safe for AI):", 2, 'masked_text')
-        self._create_text_section("Paste AI-Modified (Masked) SQL:", 4, 'ai_text')
-        self._create_text_section("Final SQL (Restored with original names):", 6, 'unmasked_text')
-        self._create_text_section("Diff Viewer:", 8, 'diff_text', readonly=True)
+        self._create_text_section("Original SQL (Sensitive):", 1, 'input_text')
+        self._create_text_section("Masked SQL (Safe for AI):", 3, 'masked_text')
+        self._create_text_section("Paste AI-Modified (Masked) SQL:", 5, 'ai_text')
+        self._create_text_section("Final SQL (Restored with original names):", 7, 'unmasked_text')
+        self._create_text_section("Diff Viewer:", 9, 'diff_text', readonly=True)
 
         self.mapping_text = scrolledtext.ScrolledText(self.root, width=50, state='disabled', font=('Consolas', 9))
-        self.mapping_text.grid(row=1, column=1, rowspan=7, sticky="nsew", padx=5)
+        self.mapping_text.grid(row=2, column=1, rowspan=7, sticky="nsew", padx=5)
 
         btn_frame = tk.Frame(self.root)
-        btn_frame.grid(row=10, column=0, columnspan=2, pady=10, sticky="ew")
+        btn_frame.grid(row=11, column=0, columnspan=2, pady=10, sticky="ew")
         for i in range(9): btn_frame.columnconfigure(i, weight=1)
 
         tk.Button(btn_frame, text="Mask SQL", command=self.prepare_masking, bg="#4CAF50", fg="black").grid(row=0, column=0, padx=5, sticky="ew")
@@ -450,7 +522,7 @@ class EnhancedSQLMaskerGUI:
         
         # Add AI buttons row
         ai_frame = tk.Frame(self.root)
-        ai_frame.grid(row=11, column=0, columnspan=2, pady=5, sticky="ew")
+        ai_frame.grid(row=12, column=0, columnspan=2, pady=5, sticky="ew")
         for i in range(4): ai_frame.columnconfigure(i, weight=1)
         
         self.ai_toggle_btn = tk.Button(ai_frame, text="🤖 Enable AI Features", command=self.toggle_ai_features, bg="#9E9E9E", fg="black")
@@ -464,6 +536,10 @@ class EnhancedSQLMaskerGUI:
         
         self.ai_modify_btn = tk.Button(ai_frame, text="✏️ Modify Code", command=self.ai_modify_code, state='disabled', bg="#2196F3", fg="black")
         self.ai_modify_btn.grid(row=0, column=3, padx=5, sticky="ew")
+    
+    def get_current_sql(self):
+        """Get current SQL from input text area"""
+        return self.input_text.get("1.0", tk.END).strip()
 
     def _create_text_section(self, label_text, row, attr_name, readonly=False):
         label = tk.Label(self.root, text=label_text, font=('Arial', 10, 'bold'))
@@ -1602,36 +1678,47 @@ class EnhancedSQLMaskerGUI:
                  bg="#F44336", fg="black").pack(side=tk.LEFT, padx=5)
 
     def toggle_ai_features(self):
-        """Toggle AI features on/off"""
+        """Toggle AI features on/off with modern dual LLM support"""
+        # Check if requests module is available
+        if requests is None:
+            messagebox.showerror(
+                "Missing Dependency", 
+                "The 'requests' module is required for AI features.\n\n"
+                "Please install it with:\npip install requests\n\n"
+                "Then restart the application."
+            )
+            return
+        
+        # Toggle AI state
+        self.ai_enabled = getattr(self, 'ai_enabled', False)
         self.ai_enabled = not self.ai_enabled
         
         if self.ai_enabled:
-            # Check if requests module is available
-            if requests is None:
-                messagebox.showerror(
-                    "Missing Dependency", 
-                    "The 'requests' module is required for AI features.\n\n"
-                    "Please install it with:\npip install requests\n\n"
-                    "Then restart the application."
-                )
-                self.ai_enabled = False
-                return
-            
             self.ai_toggle_btn.config(text="🤖 AI Enabled", bg="#4CAF50")
             self.ai_config_btn.config(state='normal')
             
-            # Check if API key is configured
-            if not self.ai_config['api_key']:
+            # Check if AI is configured
+            if not self.ai_config.is_configured():
                 response = messagebox.askyesno(
                     "AI Features", 
-                    "AI features enabled! Would you like to configure your API settings now?"
+                    "AI features enabled! Would you like to configure your AI settings now?\n\n"
+                    "💡 Tip: Enable Dual LLM mode for best results!"
                 )
                 if response:
                     self.show_ai_config()
             else:
                 self.ai_understand_btn.config(state='normal')
                 self.ai_modify_btn.config(state='normal')
-                messagebox.showinfo("AI Features", "AI features enabled! You can now use AI to understand and modify code.")
+                
+                # Show dual LLM status
+                if self.ai_config.config.get('dual_llm_enabled', False):
+                    messagebox.showinfo("AI Features", 
+                        f"🚀 AI features enabled with Dual LLM!\n\n"
+                        f"📝 Text Model: {self.ai_config.config.get('text_model', 'Unknown')}\n"
+                        f"🖼️ Vision Model: {self.ai_config.config.get('vision_model', 'Unknown')}\n\n"
+                        f"Smart routing will automatically choose the best model for your queries!")
+                else:
+                    messagebox.showinfo("AI Features", "AI features enabled! You can now use AI to understand and modify code.")
         else:
             self.ai_toggle_btn.config(text="🤖 Enable AI Features", bg="#9E9E9E")
             self.ai_config_btn.config(state='disabled')
@@ -1640,25 +1727,8 @@ class EnhancedSQLMaskerGUI:
             messagebox.showinfo("AI Features", "AI features disabled.")
     
     def show_ai_config(self):
-        """Show AI configuration dialog"""
-        config_window = Toplevel(self.root)
-        config_window.title("AI Configuration")
-        config_window.geometry("600x500")
-        config_window.resizable(False, False)
-        
-        # Make it modal
-        config_window.transient(self.root)
-        config_window.grab_set()
-        
-        # Header
-        header_frame = tk.Frame(config_window, bg="#E3F2FD")
-        header_frame.pack(fill="x", padx=10, pady=10)
-        tk.Label(header_frame, text="🤖 AI Configuration", font=('Arial', 14, 'bold'), bg="#E3F2FD").pack(pady=5)
-        tk.Label(header_frame, text="Configure your AI provider settings", bg="#E3F2FD").pack()
-        
-        # Main form
-        form_frame = tk.Frame(config_window)
-        form_frame.pack(fill="both", expand=True, padx=20, pady=10)
+        """Show modern AI configuration dialog with dual LLM support"""
+        self.ai_config.show_config_dialog(self.root)
         
         # API Provider
         tk.Label(form_frame, text="API Provider:", font=('Arial', 10, 'bold')).grid(row=0, column=0, sticky="w", pady=5)
@@ -2001,139 +2071,80 @@ class EnhancedSQLMaskerGUI:
         return result['choice']
     
     def ai_understand_code(self):
-        """Use AI to understand and explain the SQL code"""
-        if not self.ai_config['api_key']:
+        """Use AI to understand and explain the SQL code with modern interface"""
+        if not self.ai_config.is_configured():
             messagebox.showwarning("AI Not Configured", "Please configure AI settings first.")
             self.show_ai_config()
             return
         
         # Get current SQL
-        sql = self.input_text.get("1.0", tk.END).strip()
+        sql = self.get_current_sql()
         if not sql:
             messagebox.showwarning("No SQL", "Please enter SQL code first.")
             return
         
-        # Choose data type
-        data_choice = self.choose_data_for_ai("Understanding Code - Choose Data")
-        if not data_choice:
-            return
-        
-        # Get appropriate SQL version
-        if data_choice == 'masked':
-            if not self.masked_text.get("1.0", tk.END).strip():
-                response = messagebox.askyesno("No Masked Data", "No masked SQL available. Would you like to mask the SQL first?")
-                if response:
-                    self.prepare_masking()
-                    return
-                else:
-                    return
-            analysis_sql = self.masked_text.get("1.0", tk.END).strip()
-        else:
-            analysis_sql = sql
-        
-        # Create progress window
-        progress_window = self._create_progress_window("Understanding SQL Code...")
-        
-        def analyze_code():
-            try:
-                prompt = f"""Please analyze and explain this SQL code in detail. Provide:
-1. Overall purpose and functionality
-2. Key components (tables, joins, filters, etc.)
-3. Data flow and logic
-4. Any potential issues or improvements
-5. Business context if apparent
+        # Use modern AI interface with dual LLM support
+        initial_content = f"""📝 **SQL Code Analysis**
 
-SQL Code:
-{analysis_sql}"""
-                
-                response = self._call_ai_api(prompt)
-                
-                if response:
-                    progress_window.after(0, lambda: self._show_ai_result("SQL Code Understanding", response, progress_window))
-                else:
-                    progress_window.after(0, lambda: (
-                        progress_window.destroy(),
-                        messagebox.showerror("AI Error", "Failed to get AI response. Please check your configuration.")
-                    ))
-                    
-            except Exception as e:
-                progress_window.after(0, lambda err=e: (
-                    progress_window.destroy(),
-                    messagebox.showerror("Error", f"AI analysis failed: {str(err)}")
-                ))
+I'll analyze your SQL code in detail, covering:
+• Overall purpose and functionality  
+• Key components (tables, joins, filters, etc.)
+• Data flow and logic
+• Potential improvements and optimizations
+• Business context
+
+Let me examine the SQL code you provided..."""
         
-        threading.Thread(target=analyze_code, daemon=True).start()
+        # Open modern conversation interface
+        self.ai_interface.show_modern_conversation(
+            "🧠 SQL Code Understanding", 
+            initial_content, 
+            sql
+        )
     
     def ai_modify_code(self):
         """Use AI to modify SQL code based on natural language instructions"""
-        if not self.ai_config['api_key']:
+        if not self.ai_config.is_configured():
             messagebox.showwarning("AI Not Configured", "Please configure AI settings first.")
             self.show_ai_config()
             return
         
         # Get current SQL
-        sql = self.input_text.get("1.0", tk.END).strip()
+        sql = self.get_current_sql()
         if not sql:
             messagebox.showwarning("No SQL", "Please enter SQL code first.")
             return
         
-        # Get modification instructions
-        instruction_window = self._create_instruction_window()
-        if not instruction_window:
+        # Get modification instructions using modern interface
+        result = self.ai_interface.get_instruction_from_user(self.root)
+        if not result or not result.get('instructions'):
             return
         
-        instructions = instruction_window['instructions']
-        data_choice = instruction_window['data_choice']
+        instructions = result['instructions']
+        image_data = result.get('image_data')
+        image_filename = result.get('image_filename')
         
-        # Get appropriate SQL version
-        if data_choice == 'masked':
-            if not self.masked_text.get("1.0", tk.END).strip():
-                response = messagebox.askyesno("No Masked Data", "No masked SQL available. Would you like to mask the SQL first?")
-                if response:
-                    self.prepare_masking()
-                    return
-                else:
-                    return
-            modify_sql = self.masked_text.get("1.0", tk.END).strip()
-        else:
-            modify_sql = sql
+        # Use modern AI interface for modification
+        initial_content = f"""✏️ **SQL Code Modification**
+
+I'll help you modify your SQL code based on your instructions.
+
+**Your Instructions:**
+{instructions}
+
+**Original SQL Code:**
+```sql
+{sql}
+```
+
+Let me work on modifying your SQL code according to your requirements..."""
         
-        # Create progress window
-        progress_window = self._create_progress_window("Modifying SQL Code...")
-        
-        def modify_code():
-            try:
-                prompt = f"""Please modify the following SQL code according to these instructions:
-
-Instructions: {instructions}
-
-Original SQL:
-{modify_sql}
-
-Please provide:
-1. The modified SQL code
-2. Explanation of changes made
-3. Any assumptions or considerations
-
-Return the modified SQL in a clear, properly formatted way."""
-                
-                response = self._call_ai_api(prompt)
-                
-                if response:
-                    progress_window.after(0, lambda: self._show_modification_result(response, data_choice, progress_window))
-                else:
-                    progress_window.after(0, lambda: (
-                        progress_window.destroy(),
-                        messagebox.showerror("AI Error", "Failed to get AI response. Please check your configuration.")
-                    ))
-                    
-            except Exception as e:
-                progress_window.after(0, lambda err=e: (
-                    progress_window.destroy(),
-                    messagebox.showerror("Error", f"AI modification failed: {str(err)}")
-                ))
-        
-        threading.Thread(target=modify_code, daemon=True).start()
+        # Open modern conversation interface with instructions pre-loaded
+        self.ai_interface.show_modern_conversation(
+            "✏️ SQL Code Modification", 
+            initial_content, 
+            sql
+        )
     
     def _create_instruction_window(self):
         """Create window to get modification instructions from user"""
